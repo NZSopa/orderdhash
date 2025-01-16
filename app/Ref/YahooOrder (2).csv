@@ -1,0 +1,2 @@
+"OrderId","OrderTime","OrderStatus","SuspectMessage","Id","ShipName","ShipNameKana","ShipZipCode","ShipPrefecture","ShipCity","ShipAddress1","ShipAddress2","ShipPhoneNumber","ShipEmgPhoneNumber","NeedReceipt","BuyerComments","QuantityDetail"
+"10028755","2025/01/12 20:51:14","処理中","","pns-10028755","井上 雅代","イノウエ マサヨ","5200105","滋賀県","大津市","下阪本5-20-34","","0775781501","","","","L1=1"
