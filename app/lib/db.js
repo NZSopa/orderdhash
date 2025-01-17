@@ -157,12 +157,12 @@ export function saveOrders(orders, orderType) {
   try {
     const stmt = db.prepare(`
       INSERT INTO orders (
-        reference_no, sku, product_name, quantity,
+        reference_no, sku, product_name, original_product_name, quantity,
         consignee_name, kana, post_code, address,
         phone_number, unit_value, order_type,
         created_at
       ) VALUES (
-        @reference_no, @sku, @product_name, @quantity,
+        @reference_no, @sku, @product_name, @original_product_name, @quantity,
         @consignee_name, @kana, @post_code, @address,
         @phone_number, @unit_value, @order_type,
         CURRENT_TIMESTAMP
@@ -171,10 +171,12 @@ export function saveOrders(orders, orderType) {
 
     const insertMany = db.transaction((items) => {
       for (const item of items) {
+        const productName = item['product-name']
         stmt.run({
           reference_no: item['reference No.'],
           sku: item.sku,
-          product_name: item['product-name'],
+          product_name: productName,
+          original_product_name: item.originalProductName || productName,
           quantity: item['quantity-purchased'],
           consignee_name: item['Consignees NAME'],
           kana: item['Kana'],
@@ -194,5 +196,67 @@ export function saveOrders(orders, orderType) {
     throw error
   }
 }
+
+export function getProductNameByCode(db, productCode, originalName) {
+  try {
+    const stmt = db.prepare('SELECT product_name, set_qty FROM product_codes WHERE sales_code = ?')
+    const result = stmt.get(productCode)
+    if (result) {
+      const setQty = parseInt(result.set_qty) || 1
+      const codeName = setQty >= 2 ? `${result.product_name} ${setQty} SETS` : result.product_name
+      return codeName
+    }
+    return originalName
+  } catch (error) {
+    console.error('Error getting product name:', error)
+    return originalName
+  }
+}
+
+export function initDB() {
+  const db = getDB()
+  
+  // 기존 테이블이 있는지 확인
+  const tableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='orders'").get()
+  
+  if (!tableExists) {
+    // 테이블이 없으면 새로 생성
+    db.exec(`
+      CREATE TABLE orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reference_no TEXT NOT NULL UNIQUE,
+        sku TEXT,
+        product_name TEXT,
+        original_product_name TEXT,
+        quantity INTEGER DEFAULT 1,
+        unit_value REAL DEFAULT 0,
+        consignee_name TEXT,
+        kana TEXT,
+        post_code TEXT,
+        address TEXT,
+        phone_number TEXT,
+        order_type TEXT NOT NULL,
+        sales_site TEXT,
+        created_at TEXT NOT NULL
+      )
+    `)
+  } else {
+    // 테이블이 있으면 sales_site 컬럼이 있는지 확인
+    const columnExists = db.prepare("SELECT * FROM pragma_table_info('orders') WHERE name='sales_site'").get()
+    
+    if (!columnExists) {
+      // sales_site 컬럼 추가
+      db.exec(`
+        ALTER TABLE orders ADD COLUMN sales_site TEXT;
+      `)
+      console.log('Added sales_site column to orders table')
+    }
+  }
+
+  return db
+}
+
+// 애플리케이션 시작 시 DB 초기화 실행
+initDB()
 
 export default db 

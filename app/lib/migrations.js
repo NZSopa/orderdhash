@@ -37,6 +37,49 @@ export async function runMigrations() {
       )
     `).run()
 
+    // 주문 테이블 생성
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reference_no TEXT NOT NULL,
+        sku TEXT,
+        product_name TEXT,
+        original_product_name TEXT,
+        quantity INTEGER DEFAULT 1,
+        consignee_name TEXT,
+        kana TEXT,
+        post_code TEXT,
+        address TEXT,
+        phone_number TEXT,
+        unit_value INTEGER DEFAULT 0,
+        order_type TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run()
+
+    // 파일 업로드 이력 테이블 생성
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS file_uploads (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        file_name TEXT NOT NULL,
+        file_type TEXT NOT NULL,
+        status TEXT NOT NULL,
+        processed_count INTEGER DEFAULT 0,
+        error_message TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run()
+
+    // 기존 orders 테이블에 original_product_name 칼럼 추가
+    try {
+      db.prepare('ALTER TABLE orders ADD COLUMN original_product_name TEXT').run()
+    } catch (error) {
+      // 칼럼이 이미 존재하는 경우 무시
+      if (!error.message.includes('duplicate column name')) {
+        throw error
+      }
+    }
+
     // 기본 판매 사이트 데이터가 없는 경우에만 추가
     const existingSites = db.prepare('SELECT COUNT(*) as count FROM sales_sites').get()
     if (existingSites.count === 0) {
