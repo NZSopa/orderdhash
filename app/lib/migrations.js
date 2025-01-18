@@ -10,12 +10,9 @@ function getDB() {
 // inventory 테이블 생성
 const createInventoryTable = db => {
   try {
-    // 기존 테이블 강제 삭제
-    db.prepare("DROP TABLE IF EXISTS inventory").run()
-    
     // 새 테이블 생성
     db.prepare(`
-      CREATE TABLE inventory (
+      CREATE TABLE IF NOT EXISTS inventory (
         product_code TEXT PRIMARY KEY,
         product_name TEXT NOT NULL,
         nz_stock INTEGER DEFAULT 0,

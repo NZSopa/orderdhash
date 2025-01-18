@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FaSearch, FaChevronLeft, FaChevronRight } from 'react-icons/fa'
+import { FaSearch, FaChevronLeft, FaChevronRight, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa'
 
 export default function InventoryListPage() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -11,16 +11,18 @@ export default function InventoryListPage() {
   const [pageSize, setPageSize] = useState(20)
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
+  const [sortField, setSortField] = useState('product_code')
+  const [sortOrder, setSortOrder] = useState('asc')
 
   useEffect(() => {
     loadInventoryItems()
-  }, [page, pageSize, searchQuery])
+  }, [page, pageSize, searchQuery, sortField, sortOrder])
 
   const loadInventoryItems = async () => {
     try {
       const url = searchQuery 
-        ? `/api/inventory/search?query=${encodeURIComponent(searchQuery)}&page=${page}&pageSize=${pageSize}`
-        : `/api/inventory/all?page=${page}&pageSize=${pageSize}`
+        ? `/api/inventory/search?query=${encodeURIComponent(searchQuery)}&page=${page}&pageSize=${pageSize}&sortField=${sortField}&sortOrder=${sortOrder}`
+        : `/api/inventory/all?page=${page}&pageSize=${pageSize}&sortField=${sortField}&sortOrder=${sortOrder}`
       const response = await fetch(url)
       if (!response.ok) {
         throw new Error('Failed to fetch inventory items')
@@ -54,6 +56,36 @@ export default function InventoryListPage() {
       setPage(newPage)
     }
   }
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+    setPage(1)
+  }
+
+  const getSortIcon = (field) => {
+    if (sortField !== field) return <FaSort className="w-4 h-4 ml-1" />
+    return sortOrder === 'asc' ? 
+      <FaSortUp className="w-4 h-4 ml-1 text-blue-600" /> : 
+      <FaSortDown className="w-4 h-4 ml-1 text-blue-600" />
+  }
+
+  const renderSortableHeader = (field, label) => (
+    <th 
+      scope="col" 
+      className="px-3 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-50"
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center">
+        {label}
+        {getSortIcon(field)}
+      </div>
+    </th>
+  )
 
   return (
     <div className="space-y-6">
@@ -148,13 +180,13 @@ export default function InventoryListPage() {
                     <table className="min-w-full divide-y divide-gray-300">
                       <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                         <tr>
-                          <th scope="col" className="py-4 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">상품코드</th>
-                          <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-gray-900">상품명</th>
-                          <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-gray-900">NZ 재고</th>
-                          <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-gray-900">AUS 재고</th>
-                          <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-gray-900">총 재고</th>
-                          <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-gray-900">메모</th>
-                          <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-gray-900">등록일</th>
+                          {renderSortableHeader('product_code', '상품코드')}
+                          {renderSortableHeader('product_name', '상품명')}
+                          {renderSortableHeader('nz_stock', 'NZ 재고')}
+                          {renderSortableHeader('aus_stock', 'AUS 재고')}
+                          {renderSortableHeader('total_stock', '총 재고')}
+                          {renderSortableHeader('memo', '메모')}
+                          {renderSortableHeader('created_at', '등록일')}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200 bg-white">

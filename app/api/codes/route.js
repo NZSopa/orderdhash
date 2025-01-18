@@ -1,87 +1,68 @@
 import { NextResponse } from 'next/server'
-import sqlite3 from 'better-sqlite3'
+import Database from 'better-sqlite3'
 import path from 'path'
 
 function getDB() {
-  return sqlite3(path.join(process.cwd(), 'data', 'orderdash.db'))
+  return new Database(path.join(process.cwd(), 'data', 'orderdash.db'))
 }
 
-// GET /api/codes
 export async function GET(request) {
-  const db = getDB()
-  try {
-    const { searchParams } = new URL(request.url)
-    const query = searchParams.get('query')
-    const page = parseInt(searchParams.get('page')) || 1
-    const limit = parseInt(searchParams.get('limit')) || 20
-    const offset = (page - 1) * limit
+  const { searchParams } = new URL(request.url)
+  const query = searchParams.get('query')
+  const page = parseInt(searchParams.get('page')) || 1
+  const limit = parseInt(searchParams.get('limit')) || 20
+  const sortField = searchParams.get('sortField') || 'sales_code'
+  const sortOrder = searchParams.get('sortOrder') || 'asc'
+  const offset = (page - 1) * limit
 
-    let stmt
-    let countStmt
-    let params = []
+  // 정렬 필드 유효성 검사
+  const validSortFields = ['sales_code', 'product_name', 'set_qty', 'product_code', 'sales_price', 'weight', 'sales_site']
+  const actualSortField = validSortFields.includes(sortField) ? sortField : 'sales_code'
+
+  const db = getDB()
+
+  try {
+    let totalCount
+    let codes
 
     if (query) {
-      const searchPattern = `%${query}%`
-      const searchParams = Array(7).fill(searchPattern)
+      // 검색 조건에 맞는 전체 아이템 수 조회
+      totalCount = db.prepare(`
+        SELECT COUNT(*) as count 
+        FROM product_codes 
+        WHERE sales_code LIKE ? OR product_name LIKE ? OR product_code LIKE ?
+      `).get(`%${query}%`, `%${query}%`, `%${query}%`).count
 
-      // 먼저 검색 조건에 맞는 전체 데이터를 서브쿼리로 가져옴
-      stmt = db.prepare(`
-        WITH filtered_codes AS (
-          SELECT * FROM product_codes 
-          WHERE sales_code LIKE ? 
-          OR product_name LIKE ? 
-          OR product_code LIKE ?
-          OR set_qty LIKE ?
-          OR sales_price LIKE ?
-          OR weight LIKE ?
-          OR sales_site LIKE ?
-          ORDER BY created_at DESC
-        )
-        SELECT * FROM filtered_codes
-        LIMIT ? OFFSET ?
-      `)
-
-      countStmt = db.prepare(`
-        SELECT COUNT(*) as total FROM product_codes 
-        WHERE sales_code LIKE ? 
-        OR product_name LIKE ? 
-        OR product_code LIKE ?
-        OR set_qty LIKE ?
-        OR sales_price LIKE ?
-        OR weight LIKE ?
-        OR sales_site LIKE ?
-      `)
-
-      const { total } = countStmt.get(...searchParams)
-      const data = stmt.all(...[...searchParams, limit, offset])
-      
-      return NextResponse.json({ 
-        data,
-        total,
-        page,
-        limit
-      })
-    } else {
-      stmt = db.prepare(`
+      // 페이지네이션된 검색 결과 조회
+      codes = db.prepare(`
         SELECT * FROM product_codes 
-        ORDER BY created_at DESC
+        WHERE sales_code LIKE ? OR product_name LIKE ? OR product_code LIKE ?
+        ORDER BY ${actualSortField} ${sortOrder}
         LIMIT ? OFFSET ?
-      `)
-      countStmt = db.prepare('SELECT COUNT(*) as total FROM product_codes')
-      const { total } = countStmt.get()
-      const data = stmt.all(limit, offset)
-      
-      return NextResponse.json({ 
-        data,
-        total,
-        page,
-        limit
-      })
+      `).all(`%${query}%`, `%${query}%`, `%${query}%`, limit, offset)
+    } else {
+      // 전체 아이템 수 조회
+      totalCount = db.prepare('SELECT COUNT(*) as count FROM product_codes').get().count
+
+      // 페이지네이션된 데이터 조회
+      codes = db.prepare(`
+        SELECT * FROM product_codes 
+        ORDER BY ${actualSortField} ${sortOrder}
+        LIMIT ? OFFSET ?
+      `).all(limit, offset)
     }
+
+    return NextResponse.json({
+      success: true,
+      data: codes,
+      total: totalCount,
+      page,
+      totalPages: Math.ceil(totalCount / limit)
+    })
   } catch (error) {
     console.error('Error fetching codes:', error)
     return NextResponse.json(
-      { error: '코드 목록을 불러오는 중 오류가 발생했습니다.' },
+      { success: false, error: '코드 목록을 불러오는 중 오류가 발생했습니다.' },
       { status: 500 }
     )
   } finally {

@@ -55,9 +55,8 @@ try {
   `)
 
   // 재고 관리 테이블
-  db.exec(`DROP TABLE IF EXISTS inventory`)
   db.exec(`
-    CREATE TABLE inventory (
+    CREATE TABLE IF NOT EXISTS inventory (
       product_code TEXT PRIMARY KEY,
       product_name TEXT NOT NULL,
       nz_stock INTEGER DEFAULT 0,
