@@ -29,6 +29,7 @@ const menuItems = [
     items: [
       { name: '상품 코드', href: '/codes' },
       { name: '판매 사이트', href: '/sites' },
+      { name: '가격 업로드', href: '/prices' },
     ],
   },
 ]

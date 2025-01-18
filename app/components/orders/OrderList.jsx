@@ -418,7 +418,7 @@ export default function OrderList() {
                       ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' 
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                 >
-                  {isTableCompact ? '기본 크기로 보기' : '70% 크기로 보기'}
+                  {isTableCompact ? '기본 크기로 보기' : '60% 크기로 보기'}
                 </button>
               </div>
             </div>
@@ -450,17 +450,17 @@ export default function OrderList() {
                 <table className="min-w-full divide-y divide-gray-300">
                   <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                     <tr>
-                      <th scope="col" className={`py-1 pl-2 pr-1 text-left font-semibold text-gray-900 sm:pl-3 ${isTableCompact ? 'text-[8px] w-[42px]' : 'text-[11px] w-[60px]'}`}>판매사이트</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[8px] w-[56px]' : 'text-[11px] w-[80px]'}`}>주문번호</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[8px] w-[49px]' : 'text-[11px] w-[70px]'}`}>상품코드</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[8px] w-[70px]' : 'text-[11px] w-[100px]'}`}>상품명</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[8px] w-[21px]' : 'text-[11px] w-[30px]'}`}>수량</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[8px] w-[49px]' : 'text-[11px] w-[70px]'}`}>전체 판매가</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[8px] w-[49px]' : 'text-[11px] w-[70px]'}`}>수취인</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[8px] w-[42px]' : 'text-[11px] w-[60px]'}`}>우편번호</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[8px] w-[56px]' : 'text-[11px] w-[80px]'}`}>주소</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[8px] w-[56px]' : 'text-[11px] w-[80px]'}`}>연락처</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[8px] w-[42px]' : 'text-[11px] w-[60px]'}`}>판매단가</th>
+                      <th scope="col" className={`py-1 pl-2 pr-1 text-left font-semibold text-gray-900 sm:pl-3 ${isTableCompact ? 'text-[7px] w-[36px]' : 'text-[11px] w-[60px]'}`}>판매사이트</th>
+                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[48px]' : 'text-[11px] w-[80px]'}`}>주문번호</th>
+                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[42px]' : 'text-[11px] w-[70px]'}`}>상품코드</th>
+                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[60px]' : 'text-[11px] w-[100px]'}`}>상품명</th>
+                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[18px]' : 'text-[11px] w-[30px]'}`}>수량</th>
+                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[42px]' : 'text-[11px] w-[70px]'}`}>전체 판매가</th>
+                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[42px]' : 'text-[11px] w-[70px]'}`}>수취인</th>
+                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[36px]' : 'text-[11px] w-[60px]'}`}>우편번호</th>
+                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[48px]' : 'text-[11px] w-[80px]'}`}>주소</th>
+                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[48px]' : 'text-[11px] w-[80px]'}`}>연락처</th>
+                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[36px]' : 'text-[11px] w-[60px]'}`}>판매단가</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
@@ -470,9 +470,9 @@ export default function OrderList() {
                       
                       return (
                         <tr key={`${order.reference_no}-${index}`} className="hover:bg-blue-50 transition-colors">
-                          <td className={`whitespace-nowrap py-0.5 pl-2 pr-1 font-medium text-gray-900 sm:pl-3 ${isTableCompact ? 'text-[8px] w-[42px]' : 'text-[11px] w-[60px]'}`}>
+                          <td className={`whitespace-nowrap py-0.5 pl-2 pr-1 font-medium text-gray-900 sm:pl-3 ${isTableCompact ? 'text-[7px] w-[36px]' : 'text-[11px] w-[60px]'}`}>
                             <span className={`inline-flex items-center px-1 py-0.5 rounded font-medium
-                              ${isTableCompact ? 'text-[7px]' : 'text-[10px]'}
+                              ${isTableCompact ? 'text-[6px]' : 'text-[10px]'}
                               ${order.sales_site === 'amazon' ? 'bg-orange-100 text-orange-800' : 
                                 order.sales_site === 'yahoo' ? 'bg-blue-100 text-blue-800' :
                                 order.sales_site === 'rakuten' ? 'bg-red-100 text-red-800' :
@@ -484,26 +484,26 @@ export default function OrderList() {
                               {order.sales_site}
                             </span>
                           </td>
-                          <td className={`whitespace-nowrap px-1 py-0.5 font-medium text-gray-900 ${isTableCompact ? 'text-[8px] w-[56px]' : 'text-[11px] w-[80px]'}`}>{order.reference_no}</td>
-                          <td className={`whitespace-nowrap px-1 py-0.5 text-gray-600 ${isTableCompact ? 'text-[8px] w-[49px]' : 'text-[11px] w-[70px]'}`}>{order.sku}</td>
-                          <td className={`px-1 py-0.5 text-gray-900 ${isTableCompact ? 'text-[8px] w-[70px]' : 'text-[11px] w-[100px]'}`}>
-                            <div className={`font-medium leading-3 truncate ${isTableCompact ? 'text-[8px]' : 'text-[11px]'}`} title={order.product_name}>{order.product_name}</div>
+                          <td className={`whitespace-nowrap px-1 py-0.5 font-medium text-gray-900 ${isTableCompact ? 'text-[7px] w-[48px]' : 'text-[11px] w-[80px]'}`}>{order.reference_no}</td>
+                          <td className={`whitespace-nowrap px-1 py-0.5 text-gray-600 ${isTableCompact ? 'text-[7px] w-[42px]' : 'text-[11px] w-[70px]'}`}>{order.sku}</td>
+                          <td className={`px-1 py-0.5 text-gray-900 ${isTableCompact ? 'text-[7px] w-[60px]' : 'text-[11px] w-[100px]'}`}>
+                            <div className={`font-medium leading-3 truncate ${isTableCompact ? 'text-[7px]' : 'text-[11px]'}`} title={order.product_name}>{order.product_name}</div>
                             {order.original_product_name && order.original_product_name !== order.product_name && (
-                              <div className={`text-gray-500 mt-0.5 leading-3 truncate ${isTableCompact ? 'text-[7px]' : 'text-[9px]'}`} title={order.original_product_name}>{order.original_product_name}</div>
+                              <div className={`text-gray-500 mt-0.5 leading-3 truncate ${isTableCompact ? 'text-[6px]' : 'text-[9px]'}`} title={order.original_product_name}>{order.original_product_name}</div>
                             )}
                           </td>
-                          <td className={`whitespace-nowrap px-1 py-0.5 font-medium text-gray-900 ${isTableCompact ? 'text-[8px] w-[21px]' : 'text-[11px] w-[30px]'}`}>{order.quantity}</td>
-                          <td className={`whitespace-nowrap px-1 py-0.5 font-semibold ${isTableCompact ? 'text-[8px] w-[49px]' : 'text-[11px] w-[70px]'} ${isHighValue ? 'text-red-600' : 'text-gray-900'}`}>
+                          <td className={`whitespace-nowrap px-1 py-0.5 font-medium text-gray-900 ${isTableCompact ? 'text-[7px] w-[18px]' : 'text-[11px] w-[30px]'}`}>{order.quantity}</td>
+                          <td className={`whitespace-nowrap px-1 py-0.5 font-semibold ${isTableCompact ? 'text-[7px] w-[42px]' : 'text-[11px] w-[70px]'} ${isHighValue ? 'text-red-600' : 'text-gray-900'}`}>
                             {totalValue.toLocaleString()}
                           </td>
-                          <td className={`whitespace-nowrap px-1 py-0.5 ${isTableCompact ? 'text-[8px] w-[49px]' : 'text-[11px] w-[70px]'}`}>
-                            <div className={`font-medium text-gray-900 leading-3 truncate ${isTableCompact ? 'text-[8px]' : 'text-[11px]'}`} title={order.consignee_name}>{order.consignee_name}</div>
-                            <div className={`text-gray-500 mt-0.5 leading-3 truncate ${isTableCompact ? 'text-[7px]' : 'text-[9px]'}`} title={order.kana}>{order.kana}</div>
+                          <td className={`whitespace-nowrap px-1 py-0.5 ${isTableCompact ? 'text-[7px] w-[42px]' : 'text-[11px] w-[70px]'}`}>
+                            <div className={`font-medium text-gray-900 leading-3 truncate ${isTableCompact ? 'text-[7px]' : 'text-[11px]'}`} title={order.consignee_name}>{order.consignee_name}</div>
+                            <div className={`text-gray-500 mt-0.5 leading-3 truncate ${isTableCompact ? 'text-[6px]' : 'text-[9px]'}`} title={order.kana}>{order.kana}</div>
                           </td>
-                          <td className={`whitespace-nowrap px-1 py-0.5 text-gray-600 ${isTableCompact ? 'text-[8px] w-[42px]' : 'text-[11px] w-[60px]'}`}>{order.post_code}</td>
-                          <td className={`whitespace-nowrap px-1 py-0.5 text-gray-600 truncate ${isTableCompact ? 'text-[8px] w-[56px]' : 'text-[11px] w-[80px]'}`} title={order.address}>{order.address}</td>
-                          <td className={`whitespace-nowrap px-1 py-0.5 text-gray-600 ${isTableCompact ? 'text-[8px] w-[56px]' : 'text-[11px] w-[80px]'}`}>{order.phone_number}</td>
-                          <td className={`whitespace-nowrap px-1 py-0.5 font-medium text-gray-900 ${isTableCompact ? 'text-[8px] w-[42px]' : 'text-[11px] w-[60px]'}`}>{order.unit_value?.toLocaleString()}</td>
+                          <td className={`whitespace-nowrap px-1 py-0.5 text-gray-600 ${isTableCompact ? 'text-[7px] w-[36px]' : 'text-[11px] w-[60px]'}`}>{order.post_code}</td>
+                          <td className={`whitespace-nowrap px-1 py-0.5 text-gray-600 truncate ${isTableCompact ? 'text-[7px] w-[48px]' : 'text-[11px] w-[80px]'}`} title={order.address}>{order.address}</td>
+                          <td className={`whitespace-nowrap px-1 py-0.5 text-gray-600 ${isTableCompact ? 'text-[7px] w-[48px]' : 'text-[11px] w-[80px]'}`}>{order.phone_number}</td>
+                          <td className={`whitespace-nowrap px-1 py-0.5 font-medium text-gray-900 ${isTableCompact ? 'text-[7px] w-[36px]' : 'text-[11px] w-[60px]'}`}>{order.unit_value?.toLocaleString()}</td>
                         </tr>
                       );
                     })}

@@ -19,7 +19,7 @@ export default function CodesPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
-  const itemsPerPage = 20
+  const [itemsPerPage, setItemsPerPage] = useState(20)
   const [sortField, setSortField] = useState('sales_code')
   const [sortOrder, setSortOrder] = useState('asc')
   const [formData, setFormData] = useState({
@@ -79,7 +79,7 @@ export default function CodesPage() {
 
   useEffect(() => {
     loadCodes()
-  }, [currentPage, searchQuery, sortField, sortOrder])
+  }, [currentPage, searchQuery, sortField, sortOrder, itemsPerPage])
 
   const loadSalesSites = async () => {
     try {
@@ -377,7 +377,16 @@ export default function CodesPage() {
   const renderSortableHeader = (field, label) => (
     <th 
       scope="col" 
-      className="px-3 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-50"
+      className={`px-3 py-4 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-50 ${
+        field === 'sales_code' ? 'w-[120px]' :
+        field === 'product_name' ? 'w-[200px]' :
+        field === 'set_qty' ? 'w-[80px]' :
+        field === 'product_code' ? 'w-[120px]' :
+        field === 'sales_price' ? 'w-[100px]' :
+        field === 'weight' ? 'w-[100px]' :
+        field === 'sales_site' ? 'w-[100px]' :
+        'w-[80px]'
+      }`}
       onClick={() => handleSort(field)}
     >
       <div className="flex items-center">
@@ -400,7 +409,7 @@ export default function CodesPage() {
           <div className="relative">
             <input
               type="text"
-              placeholder="검색..."
+              placeholder="판매코드, 상품명, 상품코드, 판매사이트로 검색..."
               value={searchQuery}
               onChange={handleSearch}
               className="w-64 pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -442,22 +451,60 @@ export default function CodesPage() {
           <div className="space-y-4">
             {/* 페이지 정보 */}
             <div className="flex items-center justify-between">
-              <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
-                <p className="text-sm text-gray-700">
-                  전체{' '}
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
-                    {total}
-                  </span>
-                  {' '}건 중{' '}
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                    {(currentPage - 1) * itemsPerPage + 1}
-                  </span>
-                  {' '}-{' '}
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                    {Math.min(currentPage * itemsPerPage, total)}
-                  </span>
-                  {' '}건
-                </p>
+              <div className="flex items-center space-x-4">
+                <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
+                  <p className="text-sm text-gray-700">
+                    전체{' '}
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
+                      {total}
+                    </span>
+                    {' '}건 중{' '}
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                      {(currentPage - 1) * itemsPerPage + 1}
+                    </span>
+                    {' '}-{' '}
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                      {Math.min(currentPage * itemsPerPage, total)}
+                    </span>
+                    {' '}건
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
+                  <span className="text-sm font-medium text-gray-600">페이지당 데이터 갯수</span>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value))
+                      setCurrentPage(1)
+                    }}
+                    className="block w-32 pl-3 pr-10 py-1.5 text-sm bg-indigo-50 border-indigo-200 text-indigo-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md transition-colors hover:bg-indigo-100"
+                  >
+                    <option value={15}>15개</option>
+                    <option value={30}>30개</option>
+                    <option value={50}>50개</option>
+                    <option value={9999}>전체</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
+                  >
+                    <span className="sr-only">이전</span>
+                    <FaChevronLeft className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
+                  >
+                    <span className="sr-only">다음</span>
+                    <FaChevronRight className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                </nav>
               </div>
             </div>
 
@@ -465,7 +512,7 @@ export default function CodesPage() {
             <div className="overflow-x-auto">
               <div className="inline-block min-w-full align-middle">
                 <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
-                  <table className="min-w-full divide-y divide-gray-300">
+                  <table className="min-w-full table-fixed divide-y divide-gray-300">
                     <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                       <tr>
                         {renderSortableHeader('sales_code', '판매 코드')}
@@ -484,13 +531,13 @@ export default function CodesPage() {
                           key={`${code.sales_code}-${index}`}
                           className="hover:bg-blue-50 transition-colors"
                         >
-                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{code.sales_code}</td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">{code.product_name}</td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">{code.set_qty}</td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">{code.product_code}</td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">{code.sales_price.toLocaleString()}</td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">{(code.weight || 0).toFixed(2)}</td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">{code.sales_site}</td>
+                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 truncate">{code.sales_code}</td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 truncate">{code.product_name}</td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 text-center">{code.set_qty}</td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 truncate">{code.product_code}</td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 text-right">{code.sales_price.toLocaleString()}</td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 text-right">{(code.weight || 0).toFixed(2)}</td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 truncate">{code.sales_site}</td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                             <div className="flex gap-2">
                               <button

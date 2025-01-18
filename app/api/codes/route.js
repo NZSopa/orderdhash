@@ -30,16 +30,22 @@ export async function GET(request) {
       totalCount = db.prepare(`
         SELECT COUNT(*) as count 
         FROM product_codes 
-        WHERE sales_code LIKE ? OR product_name LIKE ? OR product_code LIKE ?
-      `).get(`%${query}%`, `%${query}%`, `%${query}%`).count
+        WHERE sales_code LIKE ? 
+        OR product_name LIKE ? 
+        OR product_code LIKE ?
+        OR sales_site LIKE ?
+      `).get(`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`).count
 
       // 페이지네이션된 검색 결과 조회
       codes = db.prepare(`
         SELECT * FROM product_codes 
-        WHERE sales_code LIKE ? OR product_name LIKE ? OR product_code LIKE ?
+        WHERE sales_code LIKE ? 
+        OR product_name LIKE ? 
+        OR product_code LIKE ?
+        OR sales_site LIKE ?
         ORDER BY ${actualSortField} ${sortOrder}
         LIMIT ? OFFSET ?
-      `).all(`%${query}%`, `%${query}%`, `%${query}%`, limit, offset)
+      `).all(`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, limit, offset)
     } else {
       // 전체 아이템 수 조회
       totalCount = db.prepare('SELECT COUNT(*) as count FROM product_codes').get().count
