@@ -55,13 +55,14 @@ try {
   `)
 
   // 재고 관리 테이블
+  db.exec(`DROP TABLE IF EXISTS inventory`)
   db.exec(`
-    CREATE TABLE IF NOT EXISTS inventory (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      code TEXT NOT NULL UNIQUE,
-      name TEXT NOT NULL,
-      stock INTEGER NOT NULL DEFAULT 0,
-      min_stock INTEGER NOT NULL DEFAULT 0,
+    CREATE TABLE inventory (
+      product_code TEXT PRIMARY KEY,
+      product_name TEXT NOT NULL,
+      nz_stock INTEGER DEFAULT 0,
+      aus_stock INTEGER DEFAULT 0,
+      memo TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -75,10 +76,15 @@ try {
 export function getInventoryItems() {
   const stmt = db.prepare(`
     SELECT 
-      i.*,
-      CASE WHEN i.stock < i.min_stock THEN 'low' ELSE 'normal' END as status
-    FROM inventory i
-    ORDER BY i.code
+      product_code,
+      product_name,
+      nz_stock,
+      aus_stock,
+      memo,
+      created_at,
+      updated_at
+    FROM inventory
+    ORDER BY product_code
   `)
 
   try {
@@ -93,11 +99,16 @@ export function getInventoryItems() {
 export function searchInventoryItems(query) {
   const stmt = db.prepare(`
     SELECT 
-      i.*,
-      CASE WHEN i.stock < i.min_stock THEN 'low' ELSE 'normal' END as status
-    FROM inventory i
-    WHERE i.code LIKE ? OR i.name LIKE ?
-    ORDER BY i.code
+      product_code,
+      product_name,
+      nz_stock,
+      aus_stock,
+      memo,
+      created_at,
+      updated_at
+    FROM inventory
+    WHERE product_code LIKE ? OR product_name LIKE ?
+    ORDER BY product_code
   `)
 
   try {
@@ -113,9 +124,9 @@ export function searchInventoryItems(query) {
 export function saveInventoryItem(item) {
   const stmt = db.prepare(`
     INSERT OR REPLACE INTO inventory (
-      code, name, stock, min_stock, updated_at
+      product_code, product_name, nz_stock, aus_stock, memo, updated_at
     ) VALUES (
-      @code, @name, @stock, @min_stock, CURRENT_TIMESTAMP
+      @product_code, @product_name, @nz_stock, @aus_stock, @memo, CURRENT_TIMESTAMP
     )
   `)
 
@@ -129,11 +140,11 @@ export function saveInventoryItem(item) {
 }
 
 // 재고 삭제
-export function deleteInventoryItem(code) {
-  const stmt = db.prepare('DELETE FROM inventory WHERE code = ?')
+export function deleteInventoryItem(productCode) {
+  const stmt = db.prepare('DELETE FROM inventory WHERE product_code = ?')
 
   try {
-    stmt.run(code)
+    stmt.run(productCode)
     return true
   } catch (error) {
     console.error('Error deleting inventory item:', error)

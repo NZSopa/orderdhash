@@ -7,6 +7,30 @@ function getDB() {
   return sqlite3(path.join(process.cwd(), 'data', 'orderdash.db'))
 }
 
+// inventory 테이블 생성
+const createInventoryTable = db => {
+  try {
+    // 기존 테이블 강제 삭제
+    db.prepare("DROP TABLE IF EXISTS inventory").run()
+    
+    // 새 테이블 생성
+    db.prepare(`
+      CREATE TABLE inventory (
+        product_code TEXT PRIMARY KEY,
+        product_name TEXT NOT NULL,
+        nz_stock INTEGER DEFAULT 0,
+        aus_stock INTEGER DEFAULT 0,
+        memo TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run()
+  } catch (error) {
+    console.error('Error creating inventory table:', error)
+    throw error
+  }
+}
+
 export async function runMigrations() {
   const db = getDB()
   try {
@@ -105,6 +129,8 @@ export async function runMigrations() {
 
       insertMany(sites)
     }
+
+    createInventoryTable(db)
 
     return { success: true }
   } catch (error) {
