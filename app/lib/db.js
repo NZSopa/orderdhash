@@ -5,11 +5,39 @@ let db = null
 
 export function getDB() {
   if (!db) {
-    const dbPath = path.join(process.cwd(), 'data', 'orderdash.db')
-    db = new Database(dbPath)
+    try {
+      db = new Database(path.join(process.cwd(), 'data', 'orderdash.db'), {
+        verbose: console.log,
+        fileMustExist: true
+      })
+      
+      // 데이터베이스 설정
+      db.pragma('journal_mode = WAL')
+      db.pragma('foreign_keys = ON')
+    } catch (error) {
+      console.error('Database connection error:', error)
+      throw error
+    }
   }
   return db
 }
+
+// 애플리케이션 종료 시 데이터베이스 연결 닫기
+process.on('exit', () => {
+  if (db) {
+    console.log('Closing database connection...')
+    db.close()
+  }
+})
+
+// 예기치 않은 종료 시에도 데이터베이스 연결 닫기
+process.on('SIGINT', () => {
+  if (db) {
+    console.log('Closing database connection...')
+    db.close()
+  }
+  process.exit(0)
+})
 
 // 상품 코드 조회
 export async function getProductCodes() {

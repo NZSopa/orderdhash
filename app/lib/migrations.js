@@ -151,6 +151,19 @@ export async function runMigrations() {
 
     createInventoryTable(db)
 
+    // Products_UnitPrice 테이블 생성
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS Products_UnitPrice (
+        product_code TEXT NOT NULL,
+        year_month TEXT NOT NULL,
+        price REAL DEFAULT 0,
+        memo TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (product_code, year_month)
+      )
+    `)
+
     return { success: true }
   } catch (error) {
     console.error('Error running migrations:', error)
