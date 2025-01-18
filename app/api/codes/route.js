@@ -86,10 +86,10 @@ export async function POST(request) {
       const stmt = db.prepare(`
         INSERT OR REPLACE INTO product_codes (
           sales_code, product_name, set_qty, product_code,
-          sales_price, weight, sales_site, updated_at, created_at
+          sales_price, weight, sales_site, site_url, updated_at, created_at
         ) VALUES (
           @sales_code, @product_name, @set_qty, @product_code,
-          @sales_price, @weight, @sales_site,
+          @sales_price, @weight, @sales_site, @site_url,
           CURRENT_TIMESTAMP,
           COALESCE((SELECT created_at FROM product_codes WHERE sales_code = @sales_code), CURRENT_TIMESTAMP)
         )

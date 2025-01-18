@@ -37,10 +37,21 @@ export async function runMigrations() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         code TEXT UNIQUE NOT NULL,
         name TEXT NOT NULL,
+        site_url TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `).run()
+
+    // site_url 칼럼 추가
+    try {
+      db.prepare('ALTER TABLE sales_sites ADD COLUMN site_url TEXT').run()
+    } catch (error) {
+      // 칼럼이 이미 존재하는 경우 무시
+      if (!error.message.includes('duplicate column name')) {
+        throw error
+      }
+    }
 
     // 상품 코드 테이블 생성
     db.prepare(`
@@ -53,10 +64,21 @@ export async function runMigrations() {
         sales_price INTEGER DEFAULT 0,
         weight REAL DEFAULT 0,
         sales_site TEXT,
+        site_url TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `).run()
+
+    // site_url 칼럼 추가
+    try {
+      db.prepare('ALTER TABLE product_codes ADD COLUMN site_url TEXT').run()
+    } catch (error) {
+      // 칼럼이 이미 존재하는 경우 무시
+      if (!error.message.includes('duplicate column name')) {
+        throw error
+      }
+    }
 
     // 주문 테이블 생성
     db.prepare(`

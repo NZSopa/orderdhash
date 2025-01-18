@@ -29,7 +29,8 @@ export default function CodesPage() {
     product_code: '',
     sales_price: 0,
     weight: 0,
-    sales_site: ''
+    sales_site: '',
+    site_url: ''
   })
   const [siteFormData, setSiteFormData] = useState({
     code: '',
@@ -163,7 +164,8 @@ export default function CodesPage() {
       product_code: code.product_code || '',
       sales_price: code.sales_price || 0,
       weight: code.weight || 0,
-      sales_site: code.sales_site || ''
+      sales_site: code.sales_site || '',
+      site_url: code.site_url || ''
     })
     setIsModalOpen(true)
   }
@@ -222,55 +224,82 @@ export default function CodesPage() {
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0]
-    const reader = new FileReader()
-
-    reader.onload = async (e) => {
-      const data = new Uint8Array(e.target.result)
-      const workbook = XLSX.read(data, { type: 'array' })
-      const sheetName = workbook.SheetNames[0]
-      const worksheet = workbook.Sheets[sheetName]
-      const json = XLSX.utils.sheet_to_json(worksheet)
-
-      const uniqueData = new Map()
-      
-      json.forEach(row => {
-        const formattedRow = {
-          sales_code: String(row.sales_code || ''),
-          product_name: String(row.product_name || ''),
-          set_qty: Number(row.set_qty || 1),
-          product_code: String(row.product_code || ''),
-          sales_price: Number(row.sales_price || 0),
-          weight: Number(row.weight || 0),
-          sales_site: String(row.sales_site || '')
-        }
-        uniqueData.set(formattedRow.sales_code, formattedRow)
-      })
-
-      const formattedData = Array.from(uniqueData.values())
-
-      try {
-        const response = await fetch('/api/codes', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ codes: formattedData })
-        })
-        
-        const data = await response.json()
-        if (response.ok && data.success) {
-          alert('엑셀 파일이 성공적으로 처리되었습니다.')
-          await loadCodes()
-        } else {
-          alert(data.error || '코드 저장 중 오류가 발생했습니다.')
-        }
-      } catch (error) {
-        console.error('Error saving codes:', error)
-        alert('코드 저장 중 오류가 발생했습니다.')
-      }
+    if (!file) {
+      alert('파일을 선택해주세요.')
+      return
     }
 
-    reader.readAsArrayBuffer(file)
+    // 파일 확장자 체크
+    const fileExtension = file.name.split('.').pop().toLowerCase()
+    if (!['xlsx', 'xls'].includes(fileExtension)) {
+      alert('엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.')
+      return
+    }
+
+    try {
+      const reader = new FileReader()
+
+      reader.onload = async (e) => {
+        try {
+          const fileData = new Uint8Array(e.target.result)
+          const workbook = XLSX.read(fileData, { type: 'array' })
+          const sheetName = workbook.SheetNames[0]
+          const worksheet = workbook.Sheets[sheetName]
+          const json = XLSX.utils.sheet_to_json(worksheet)
+
+          const uniqueData = new Map()
+          
+          json.forEach(row => {
+            const formattedRow = {
+              sales_code: String(row.sales_code || ''),
+              product_name: String(row.product_name || ''),
+              set_qty: Number(row.set_qty || 1),
+              product_code: String(row.product_code || ''),
+              sales_price: Number(row.sales_price || 0),
+              weight: Number(row.weight || 0),
+              sales_site: String(row.sales_site || ''),
+              site_url: String(row.site_url || '')
+            }
+            uniqueData.set(formattedRow.sales_code, formattedRow)
+          })
+
+          const formattedData = Array.from(uniqueData.values())
+
+          if (formattedData.length === 0) {
+            alert('처리할 데이터가 없습니다.')
+            return
+          }
+
+          const response = await fetch('/api/codes', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ codes: formattedData })
+          })
+          
+          const responseData = await response.json()
+          if (response.ok && responseData.success) {
+            alert('엑셀 파일이 성공적으로 처리되었습니다.')
+            await loadCodes()
+          } else {
+            alert(responseData.error || '코드 저장 중 오류가 발생했습니다.')
+          }
+        } catch (error) {
+          console.error('Error processing excel file:', error)
+          alert('엑셀 파일 처리 중 오류가 발생했습니다.')
+        }
+      }
+
+      reader.onerror = () => {
+        alert('파일 읽기 중 오류가 발생했습니다.')
+      }
+
+      reader.readAsArrayBuffer(file)
+    } catch (error) {
+      console.error('Error handling file upload:', error)
+      alert('파일 업로드 중 오류가 발생했습니다.')
+    }
   }
 
   const resetFormData = () => {
@@ -282,7 +311,8 @@ export default function CodesPage() {
       product_code: '',
       sales_price: 0,
       weight: 0,
-      sales_site: ''
+      sales_site: '',
+      site_url: ''
     })
   }
 
@@ -385,6 +415,7 @@ export default function CodesPage() {
         field === 'sales_price' ? 'w-[100px]' :
         field === 'weight' ? 'w-[100px]' :
         field === 'sales_site' ? 'w-[100px]' :
+        field === 'site_url' ? 'w-[150px]' :
         'w-[80px]'
       }`}
       onClick={() => handleSort(field)}
@@ -522,6 +553,7 @@ export default function CodesPage() {
                         {renderSortableHeader('sales_price', '판매가격')}
                         {renderSortableHeader('weight', '무게(kg)')}
                         {renderSortableHeader('sales_site', '판매 사이트')}
+                        {renderSortableHeader('site_url', '사이트 URL')}
                         <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-gray-900">작업</th>
                       </tr>
                     </thead>
@@ -538,6 +570,18 @@ export default function CodesPage() {
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 text-right">{code.sales_price.toLocaleString()}</td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 text-right">{(code.weight || 0).toFixed(2)}</td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 truncate">{code.sales_site}</td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 truncate">
+                            {code.site_url ? (
+                              <a 
+                                href={code.site_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                {code.site_url}
+                              </a>
+                            ) : '-'}
+                          </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                             <div className="flex gap-2">
                               <button
@@ -710,6 +754,18 @@ export default function CodesPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">사이트 URL</label>
+                  <input
+                    type="url"
+                    className="input input-bordered w-full"
+                    value={formData.site_url}
+                    onChange={(e) =>
+                      setFormData({ ...formData, site_url: e.target.value })
+                    }
+                    placeholder="https://"
+                  />
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-6">

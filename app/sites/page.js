@@ -9,7 +9,8 @@ export default function SitesPage() {
   const [editingSite, setEditingSite] = useState(null)
   const [siteFormData, setSiteFormData] = useState({
     code: '',
-    name: ''
+    name: '',
+    site_url: ''
   })
 
   useEffect(() => {
@@ -61,7 +62,8 @@ export default function SitesPage() {
     setSiteFormData({
       id: site.id || '',
       code: site.code || '',
-      name: site.name || ''
+      name: site.name || '',
+      site_url: site.site_url || ''
     })
     setIsSiteModalOpen(true)
   }
@@ -91,7 +93,8 @@ export default function SitesPage() {
     setSiteFormData({
       id: '',
       code: '',
-      name: ''
+      name: '',
+      site_url: ''
     })
   }
 
@@ -118,6 +121,7 @@ export default function SitesPage() {
             <tr>
               <th>사이트 코드</th>
               <th>사이트명</th>
+              <th>사이트 URL</th>
               <th>작업</th>
             </tr>
           </thead>
@@ -126,6 +130,18 @@ export default function SitesPage() {
               <tr key={site.code} className="hover:bg-gray-50">
                 <td>{site.code}</td>
                 <td>{site.name}</td>
+                <td>
+                  {site.site_url ? (
+                    <a 
+                      href={site.site_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      {site.site_url}
+                    </a>
+                  ) : '-'}
+                </td>
                 <td>
                   <div className="flex gap-2">
                     <button
@@ -179,6 +195,18 @@ export default function SitesPage() {
                       setSiteFormData({ ...siteFormData, name: e.target.value })
                     }
                     required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">사이트 URL</label>
+                  <input
+                    type="url"
+                    className="input input-bordered w-full"
+                    value={siteFormData.site_url}
+                    onChange={(e) =>
+                      setSiteFormData({ ...siteFormData, site_url: e.target.value })
+                    }
+                    placeholder="https://"
                   />
                 </div>
               </div>

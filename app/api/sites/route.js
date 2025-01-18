@@ -31,9 +31,9 @@ export async function POST(request) {
     try {
       const stmt = db.prepare(`
         INSERT OR REPLACE INTO sales_sites (
-          code, name, updated_at, created_at
+          code, name, site_url, updated_at, created_at
         ) VALUES (
-          @code, @name,
+          @code, @name, @site_url,
           CURRENT_TIMESTAMP,
           COALESCE((SELECT created_at FROM sales_sites WHERE code = @code), CURRENT_TIMESTAMP)
         )

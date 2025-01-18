@@ -1,0 +1,80 @@
+﻿sku	asin	price	quantity	Business Price	Quantity Price Type	Quantity Lower Bound 1	Quantity Price 1	Quantity Lower Bound 2	Quantity Price 2	Quantity Lower Bound 3	Quantity Price 3	Quantity Lower Bound 4	Quantity Price 4	Quantity Lower Bound 5	Quantity Price 5	Progressive Price Type	Progressive Lower Bound 1	Progressive Price 1	Progressive Lower Bound 2	Progressive Price 2	Progressive Lower Bound 3	Progressive Price 3
+1Y-1BVY-BV8W	B096QGFX8X	78.00	9																			
+33-I2BX-C292	B09SP1RJ11	483.00	10																			
+5Q-0U1Z-OM7P	B096RC6Q7S	80.83	1																			
+B7-GPCP-0QJR	B096QJT5JW	84.79	6																			
+CW-1WZ0-KQND	B096QDGW7M	78.00	7																			
+FV-MARA-ONPE	B0B69W6CNS	144.90	9																			
+GR-TYPI-HLRT	B07PHX9CWD	207.99	10																			
+HS330001136	B0C5XVWDB2	75.00	8																			
+HS330001138	B0C5XT9H69	98.00	10																			
+HS330001155	B0C5XVGWVM	161.00	10																			
+HS330001156	B0C5XWG7DF	191.00	10																			
+HS330001158	B0C5XSRB45	96.00	10																			
+HS330001162	B0C5XSTSRS	98.00	10																			
+J1-BME0-GJEB	B07PHX9WR2	80.99	10																			
+P00924	B07CJYPGXM	53.00	5																			
+P01104	B00KMO352E	69.90	2																			
+P01106	B07WWZP2HC	62.66	9																			
+P01466	B07QBN9SWF	179.00	10																			
+P02102	B07FZ5CJRH	44.92	10																			
+P02939	B07YNCWLFG	63.00	10																			
+P04608	B092ZW5YW9	100.00	19																			
+P05056	B08N3SXS71	115.00	8																			
+P05307	B08N9ZBB4V	199.00	10																			
+P05569	B08N3B9PT4	329.00	8																			
+QO-DE3Y-BOON	B019IR9M3G	425.00	7																			
+QU-H3ID-DRMW	B019IR5TE2	243.00	7																			
+UD-KFP6-GP8Q	B01MS4LMY9	147.00	5																			
+WH-KA8F-BCCY	B08MDTRLNT	72.00	10																			
+YJ-Z24L-ECA5	B09J4FXR9M	89.00	20																			
+06-BW3H-XG8T	B01M9I3LGW	109.00	0																			
+1A-O0OQ-LUAJ	B07YLLB7GC	205.00	0																			
+20-YIN4-OLTQ	B01B1HJQO6	89.00	0																			
+2D-6PKX-W3NW	B00ZG9IK84	24.95																				
+2S-YXLF-JKPH	B01B1LP10U	264.00	0																			
+53-5P02-YPUL	B09TD1JDZF	65.00	0																			
+7O-ZYAH-22JC	B08NSNRLFS	109.00	0																			
+8H-5PR7-QC8G	B096QDQ3P7	84.79	0																			
+9Y-YT8V-8RHZ	B098D3M31R	331.00	0																			
+A4-0U5N-ENTJ	B09ZDP5N7K	129.00	0																			
+C9-ZYXJ-0W5S	B096FJ7PYJ	77.00	0																			
+CH-7RAA-EWNC	B019IQY27S	105.00	0																			
+DH-X0VW-9MW4	B096375RH8	70.00	0																			
+HS330000383	B07B6NQ3F2	76.00	0																			
+HS330001170	B0C5XS7ZKK	79.00	0																			
+IM-JM1Q-XIA6	B09ST7LNYR	73.00	0																			
+INT230413001	B01LAHIYB8	65.00	0																			
+IY-SF5U-YRNJ	B0BGKHB7MZ	619.00	0																			
+L0-KRSV-H6B9	B00VAYX98U	16.95																				
+M0-SFYG-4QQF	B09SYKTRFD	59.00	0																			
+MB-3YY2-DVWA	B00OYV8A4E	47.90																				
+MN-I32S-QAJN	B00VATU6PE	24.95																				
+P00240	B071X948N9	83.00	0																			
+P00558	B06Y166JL3	186.00	0																			
+P00925	B07QP1V9NV	78.00	0																			
+P00983	B07B6NQ3F2	78.00	0																			
+P00989	B07FR5GBZL	65.00	0																			
+P01262	B08BNW8W4Z	63.00	0																			
+P01339	B07YNMXH1Z	91.00	0																			
+P01452	B07BQFW8HN	67.00	0																			
+P01453	B019N0NI06	180.99	0																			
+P01454	B09T97CMQH	127.00	0																			
+P01455	B06Y3V3YDL	191.00	0																			
+P01456	B08NTLX9H3	112.00	0																			
+P01460	B019N1QHQC	93.99	0																			
+P01470	B09TD9H8HN	135.00	0																			
+P01474	B09HSXNMJB	164.00	0																			
+P01481	B019ILQ5A0	209.00	0																			
+P01501	B01B1LNIQY	180.00	0																			
+P02900	B07YKRDPTC	63.00	0																			
+P02928	B07YLL7JN2	77.00	0																			
+P02933	B07PJ9ZZH2	49.00	0																			
+P04802	B08GCFJ5JS	62.00	0																			
+P7-L542-XGXF	B00GX2PBBM	24.00																				
+RT-IGI3-G8FS	B096QCBB5T	77.00																				
+ST-NROP-KGBP	B096RN88R9	77.00	0																			
+TB-J5A3-95NU	B09TN1MC8B	62.00	0																			
+UJ-M96V-TASD	B075TXCRTG	28.00																				
+VQ-0IRN-2VV0	B0B6DD21K5	79.00	0																			
+X8-I9YL-USJ3	B01B1LL6NQ	95.00	0																			
