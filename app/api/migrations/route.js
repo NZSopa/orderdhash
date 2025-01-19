@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { runMigrations } from '@/app/lib/migrations'
+import { runMigrations } from '../../lib/migrations'
 
 export async function POST() {
   try {

@@ -1,6 +1,6 @@
 'use client'
 
-import InventoryFileUpload from '@/app/components/inventory/InventoryFileUpload'
+import InventoryFileUpload from '../components/inventory/InventoryFileUpload'
 
 export default function InventoryPage() {
   return (

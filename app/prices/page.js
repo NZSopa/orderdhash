@@ -1,4 +1,4 @@
-import PriceFileUpload from '@/app/components/prices/PriceFileUpload'
+import PriceFileUpload from '../components/prices/PriceFileUpload'
 
 export default function PricePage() {
   return (

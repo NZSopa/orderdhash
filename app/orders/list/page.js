@@ -1,6 +1,6 @@
 'use client'
 
-import OrderList from '@/app/components/orders/OrderList'
+import OrderList from '../../components/orders/OrderList'
 
 export default function OrderListPage() {
   return (

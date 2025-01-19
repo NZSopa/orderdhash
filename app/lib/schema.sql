@@ -1,0 +1,45 @@
+-- Product_Codes 테이블 생성
+CREATE TABLE IF NOT EXISTS Product_Codes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_code TEXT NOT NULL,
+  sales_sku TEXT NOT NULL,
+  product_name TEXT NOT NULL,
+  weight INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Products_UnitPrice 테이블 생성
+CREATE TABLE IF NOT EXISTS Products_UnitPrice (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_code TEXT NOT NULL,
+  price DECIMAL(10, 2) NOT NULL,
+  year_month TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Inventory 테이블 생성
+CREATE TABLE IF NOT EXISTS Inventory (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_code TEXT NOT NULL,
+  nz_stock INTEGER DEFAULT 0,
+  aus_stock INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Sales 테이블 생성
+CREATE TABLE IF NOT EXISTS Sales (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sales_sku TEXT NOT NULL,
+  product_code TEXT NOT NULL,
+  sales_price DECIMAL(10, 2) NOT NULL,
+  qty INTEGER NOT NULL,
+  sales_channel TEXT NOT NULL,
+  shipping_from TEXT,
+  shipping_fee DECIMAL(10, 2) DEFAULT 0,
+  set_qty INTEGER DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+); 

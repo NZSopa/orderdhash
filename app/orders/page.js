@@ -1,6 +1,6 @@
 'use client'
 
-import FileUpload from '@/app/components/orders/FileUpload'
+import FileUpload from '../components/orders/FileUpload'
 
 export default function OrdersPage() {
   return (

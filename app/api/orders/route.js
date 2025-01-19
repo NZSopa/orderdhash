@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getDB } from '@/app/lib/db'
+import { getDB } from '../../lib/db'
 
 export async function GET(request) {
   const db = getDB()
