@@ -428,12 +428,12 @@ export default function CodesPage() {
   )
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 p-8 max-w-[1600px] mx-auto">
+      <div className="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">코드 관리</h1>
-          <p className="mt-2 text-sm text-gray-700">
-            상품 코드와 판매 정보를 관리할 수 있습니다.
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">코드 관리</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            상품 코드와 판매 정보를 효율적으로 관리할 수 있습니다.
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -443,13 +443,13 @@ export default function CodesPage() {
               placeholder="판매코드, 상품명, 상품코드, 판매사이트로 검색..."
               value={searchQuery}
               onChange={handleSearch}
-              className="w-64 pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-80 pl-12 pr-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-white"
             />
-            <FaSearch className="absolute left-3 top-3 text-gray-400" />
+            <FaSearch className="absolute left-4 top-4 text-gray-400" />
           </div>
-          <label className="btn btn-primary">
+          <label className="inline-flex items-center px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors cursor-pointer shadow-sm">
             <FaFileExcel className="mr-2" />
-            엑셀 업로드
+            파일 업로드
             <input
               type="file"
               className="hidden"
@@ -458,7 +458,7 @@ export default function CodesPage() {
             />
           </label>
           <button
-            className="btn btn-primary"
+            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
             onClick={() => {
               setEditingCode(null)
               resetFormData()
@@ -466,10 +466,10 @@ export default function CodesPage() {
             }}
           >
             <FaPlus className="mr-2" />
-            코드 추가
+            추가
           </button>
           <button
-            className="btn btn-error"
+            className="inline-flex items-center px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors shadow-sm"
             onClick={handleDeleteAll}
           >
             전체 삭제
@@ -477,38 +477,38 @@ export default function CodesPage() {
         </div>
       </div>
 
-      <div className="bg-white shadow sm:rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <div className="space-y-4">
+      <div className="bg-white shadow-sm rounded-xl overflow-hidden">
+        <div className="p-6">
+          <div className="space-y-6">
             {/* 페이지 정보 */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
+                <div className="bg-gray-50 px-6 py-3 rounded-xl border border-gray-100">
                   <p className="text-sm text-gray-700">
                     전체{' '}
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
                       {total}
                     </span>
                     {' '}건 중{' '}
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
                       {(currentPage - 1) * itemsPerPage + 1}
                     </span>
                     {' '}-{' '}
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
                       {Math.min(currentPage * itemsPerPage, total)}
                     </span>
                     {' '}건
                   </p>
                 </div>
-                <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
-                  <span className="text-sm font-medium text-gray-600">페이지당 데이터 갯수</span>
+                <div className="flex items-center space-x-3 bg-gray-50 px-6 py-3 rounded-xl border border-gray-100">
+                  <span className="text-sm font-medium text-gray-700">페이지당 데이터</span>
                   <select
                     value={itemsPerPage}
                     onChange={(e) => {
                       setItemsPerPage(Number(e.target.value))
                       setCurrentPage(1)
                     }}
-                    className="block w-32 pl-3 pr-10 py-1.5 text-sm bg-indigo-50 border-indigo-200 text-indigo-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md transition-colors hover:bg-indigo-100"
+                    className="block w-32 pl-3 pr-10 py-2 text-sm bg-white border border-gray-200 text-gray-700 font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors hover:border-gray-300"
                   >
                     <option value={15}>15개</option>
                     <option value={30}>30개</option>
@@ -517,34 +517,14 @@ export default function CodesPage() {
                   </select>
                 </div>
               </div>
-              <div>
-                <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                  <button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
-                  >
-                    <span className="sr-only">이전</span>
-                    <FaChevronLeft className="h-5 w-5" aria-hidden="true" />
-                  </button>
-                  <button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
-                  >
-                    <span className="sr-only">다음</span>
-                    <FaChevronRight className="h-5 w-5" aria-hidden="true" />
-                  </button>
-                </nav>
-              </div>
             </div>
 
             {/* 코드 목록 테이블 */}
             <div className="overflow-x-auto">
               <div className="inline-block min-w-full align-middle">
-                <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
-                  <table className="min-w-full table-fixed divide-y divide-gray-300">
-                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                <div className="overflow-hidden border border-gray-200 rounded-xl">
+                  <table className="min-w-full table-fixed divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
                       <tr>
                         {renderSortableHeader('sales_code', '판매 코드')}
                         {renderSortableHeader('product_name', '상품명')}
@@ -554,47 +534,47 @@ export default function CodesPage() {
                         {renderSortableHeader('weight', '무게(kg)')}
                         {renderSortableHeader('sales_site', '판매 사이트')}
                         {renderSortableHeader('site_url', '사이트 URL')}
-                        <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-gray-900">작업</th>
+                        <th scope="col" className="px-4 py-4 text-left text-sm font-semibold text-gray-900">작업</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
                       {codes.map((code, index) => (
                         <tr 
                           key={`${code.sales_code}-${index}`}
-                          className="hover:bg-blue-50 transition-colors"
+                          className="hover:bg-blue-50/30 transition-colors"
                         >
-                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 truncate">{code.sales_code}</td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 truncate">{code.product_name}</td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 text-center">{code.set_qty}</td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 truncate">{code.product_code}</td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 text-right">{code.sales_price.toLocaleString()}</td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 text-right">{(code.weight || 0).toFixed(2)}</td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 truncate">{code.sales_site}</td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 truncate">
+                          <td className="whitespace-nowrap py-4 pl-6 pr-4 text-sm font-medium text-gray-900 truncate">{code.sales_code}</td>
+                          <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-900 truncate">{code.product_name}</td>
+                          <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-900 text-center">{code.set_qty}</td>
+                          <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-900 truncate">{code.product_code}</td>
+                          <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-900 text-right">{code.sales_price.toLocaleString()}</td>
+                          <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-900 text-right">{(code.weight || 0).toFixed(2)}</td>
+                          <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-900 truncate">{code.sales_site}</td>
+                          <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-900 truncate">
                             {code.site_url ? (
                               <a 
                                 href={code.site_url} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
-                                className="text-blue-600 hover:text-blue-800"
+                                className="text-blue-600 hover:text-blue-800 hover:underline"
                               >
                                 {code.site_url}
                               </a>
                             ) : '-'}
                           </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            <div className="flex gap-2">
+                          <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-500">
+                            <div className="flex gap-3">
                               <button
-                                className="text-blue-600 hover:text-blue-800"
+                                className="text-blue-600 hover:text-blue-800 transition-colors"
                                 onClick={() => handleEdit(code)}
                               >
-                                <FaEdit />
+                                <FaEdit className="w-4 h-4" />
                               </button>
                               <button
-                                className="text-red-600 hover:text-red-800"
+                                className="text-red-600 hover:text-red-800 transition-colors"
                                 onClick={() => handleDelete(code.sales_code)}
                               >
-                                <FaTrash />
+                                <FaTrash className="w-4 h-4" />
                               </button>
                             </div>
                           </td>
@@ -607,52 +587,28 @@ export default function CodesPage() {
             </div>
 
             {/* 페이지네이션 */}
-            <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
-              <div className="flex flex-1 justify-between sm:hidden">
+            <div className="flex items-center justify-center mt-6">
+              <nav className="isolate inline-flex -space-x-px rounded-xl shadow-sm" aria-label="Pagination">
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="relative inline-flex items-center rounded-l-xl px-4 py-3 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
                 >
-                  이전
+                  <span className="sr-only">이전</span>
+                  <FaChevronLeft className="h-5 w-5" aria-hidden="true" />
                 </button>
+                <div className="relative inline-flex items-center px-4 py-3 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 focus:z-20 focus:outline-offset-0">
+                  {currentPage} / {totalPages}
+                </div>
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="relative inline-flex items-center rounded-r-xl px-4 py-3 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
                 >
-                  다음
+                  <span className="sr-only">다음</span>
+                  <FaChevronRight className="h-5 w-5" aria-hidden="true" />
                 </button>
-              </div>
-              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm text-gray-700">
-                    전체 <span className="font-medium">{total}</span> 건 중{' '}
-                    <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> -{' '}
-                    <span className="font-medium">{Math.min(currentPage * itemsPerPage, total)}</span> 건
-                  </p>
-                </div>
-                <div>
-                  <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                    <button
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
-                    >
-                      <span className="sr-only">이전</span>
-                      <FaChevronLeft className="h-5 w-5" aria-hidden="true" />
-                    </button>
-                    <button
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
-                    >
-                      <span className="sr-only">다음</span>
-                      <FaChevronRight className="h-5 w-5" aria-hidden="true" />
-                    </button>
-                  </nav>
-                </div>
-              </div>
+              </nav>
             </div>
           </div>
         </div>
@@ -660,18 +616,18 @@ export default function CodesPage() {
 
       {/* 코드 추가/수정 모달 */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-white p-8 rounded-2xl w-full max-w-lg shadow-xl">
+            <h2 className="text-2xl font-bold mb-6 text-gray-900">
               {editingCode ? '코드 수정' : '코드 추가'}
             </h2>
             <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium mb-1">판매 코드</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700">판매 코드</label>
                   <input
                     type="text"
-                    className="input input-bordered w-full"
+                    className="w-full px-4 py-3 rounded-xl border-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     value={formData.sales_code}
                     onChange={(e) =>
                       setFormData({ ...formData, sales_code: e.target.value })
@@ -680,10 +636,10 @@ export default function CodesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">상품명</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700">상품명</label>
                   <input
                     type="text"
-                    className="input input-bordered w-full"
+                    className="w-full px-4 py-3 rounded-xl border-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     value={formData.product_name}
                     onChange={(e) =>
                       setFormData({ ...formData, product_name: e.target.value })
@@ -692,10 +648,10 @@ export default function CodesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">세트수량</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700">세트수량</label>
                   <input
                     type="number"
-                    className="input input-bordered w-full"
+                    className="w-full px-4 py-3 rounded-xl border-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     value={formData.set_qty}
                     onChange={(e) =>
                       setFormData({ ...formData, set_qty: parseInt(e.target.value) || 0 })
@@ -704,10 +660,10 @@ export default function CodesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">상품코드</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700">상품코드</label>
                   <input
                     type="text"
-                    className="input input-bordered w-full"
+                    className="w-full px-4 py-3 rounded-xl border-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     value={formData.product_code}
                     onChange={(e) =>
                       setFormData({ ...formData, product_code: e.target.value })
@@ -715,10 +671,10 @@ export default function CodesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">판매가격</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700">판매가격</label>
                   <input
                     type="number"
-                    className="input input-bordered w-full"
+                    className="w-full px-4 py-3 rounded-xl border-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     value={formData.sales_price}
                     onChange={(e) =>
                       setFormData({ ...formData, sales_price: parseInt(e.target.value) || 0 })
@@ -727,11 +683,11 @@ export default function CodesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">무게(kg)</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700">무게(kg)</label>
                   <input
                     type="number"
                     step="0.01"
-                    className="input input-bordered w-full"
+                    className="w-full px-4 py-3 rounded-xl border-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     value={formData.weight}
                     onChange={(e) =>
                       setFormData({ ...formData, weight: parseFloat(e.target.value) || 0 })
@@ -739,9 +695,9 @@ export default function CodesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">판매 사이트</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700">판매 사이트</label>
                   <select
-                    className="select select-bordered w-full"
+                    className="w-full px-4 py-3 rounded-xl border-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     value={formData.sales_site}
                     onChange={(e) =>
                       setFormData({ ...formData, sales_site: e.target.value })
@@ -756,10 +712,10 @@ export default function CodesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">사이트 URL</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700">사이트 URL</label>
                   <input
                     type="url"
-                    className="input input-bordered w-full"
+                    className="w-full px-4 py-3 rounded-xl border-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     value={formData.site_url}
                     onChange={(e) =>
                       setFormData({ ...formData, site_url: e.target.value })
@@ -768,10 +724,10 @@ export default function CodesPage() {
                   />
                 </div>
               </div>
-              <div className="flex justify-end gap-2 mt-6">
+              <div className="flex justify-end gap-3 mt-8">
                 <button
                   type="button"
-                  className="btn btn-ghost"
+                  className="px-6 py-3 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
                   onClick={() => {
                     setIsModalOpen(false)
                     setEditingCode(null)
@@ -780,7 +736,10 @@ export default function CodesPage() {
                 >
                   취소
                 </button>
-                <button type="submit" className="btn btn-primary">
+                <button 
+                  type="submit" 
+                  className="px-6 py-3 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                >
                   {editingCode ? '수정' : '추가'}
                 </button>
               </div>
@@ -791,20 +750,20 @@ export default function CodesPage() {
 
       {/* 전체 삭제 확인 모달 */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">전체 삭제 확인</h2>
-            <p className="mb-4">다음 수식의 답을 입력하세요: {equation}</p>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-white p-8 rounded-2xl w-full max-w-lg shadow-xl">
+            <h2 className="text-2xl font-bold mb-6 text-gray-900">전체 삭제 확인</h2>
+            <p className="mb-6 text-gray-600">다음 수식의 답을 입력하세요: <span className="font-semibold text-gray-900">{equation}</span></p>
             <input
               type="number"
-              className="input input-bordered w-full mb-4"
+              className="w-full px-4 py-3 rounded-xl border-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all mb-6"
               value={userAnswer}
               onChange={(e) => setUserAnswer(e.target.value)}
               placeholder="답을 입력하세요"
             />
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-3">
               <button
-                className="btn btn-ghost"
+                className="px-6 py-3 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
                 onClick={() => {
                   setIsDeleteModalOpen(false)
                   setUserAnswer('')
@@ -813,7 +772,7 @@ export default function CodesPage() {
                 취소
               </button>
               <button
-                className="btn btn-error"
+                className="px-6 py-3 rounded-xl bg-red-600 text-white hover:bg-red-700 transition-colors"
                 onClick={handleVerifyAndDelete}
               >
                 삭제
