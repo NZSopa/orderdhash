@@ -52,7 +52,7 @@ export default function CodesPage() {
         limit: itemsPerPage,
         sortField,
         sortOrder,
-        ...(searchQuery && { search: searchQuery })
+        ...(searchQuery && { query: searchQuery })
       })
 
       const response = await fetch(`/api/codes?${queryParams}`)
@@ -72,6 +72,7 @@ export default function CodesPage() {
 
   const handleSearch = (e) => {
     setSearchQuery(e.target.value)
+    setCurrentPage(1)
   }
 
   const handleSubmit = async (e) => {
@@ -398,7 +399,7 @@ export default function CodesPage() {
                 {renderSortableHeader('set_qty', '세트 수량')}
                 {renderSortableHeader('product_code', '제품 코드')}
                 {renderSortableHeader('sales_price', '판매가')}
-                {renderSortableHeader('weight', '중량(g)')}
+                {renderSortableHeader('weight', '중량(kg)')}
                 {renderSortableHeader('sales_site', '판매 사이트')}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   상품 URL
@@ -427,10 +428,16 @@ export default function CodesPage() {
                     {code.product_code || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {code.sales_price ? `${code.sales_price.toLocaleString()}원` : '-'}
+                    {code.sales_price ? 
+                      `${code.sales_price.toLocaleString()}${
+                        code.sales_site === 'AMZ_NZP' || code.sales_site === 'ebay' 
+                          ? ' USD' 
+                          : ' ¥'
+                      }` 
+                      : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {code.weight ? `${code.weight}g` : '-'}
+                    {code.weight ? `${code.weight}kg` : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {code.sales_site || '-'}
@@ -496,7 +503,7 @@ export default function CodesPage() {
       {/* 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl transform transition-all">
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
               <h2 className="text-xl font-bold text-gray-900">
                 {editingCode ? '출품 정보 수정' : '출품 정보 추가'}
@@ -515,7 +522,7 @@ export default function CodesPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit}>
-              <div className="p-6 space-y-6">
+              <div className="p-6 grid grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     판매 코드
@@ -585,10 +592,11 @@ export default function CodesPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    중량(g)
+                    중량(kg)
                   </label>
                   <input
                     type="number"
+                    step="0.001"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     value={formData.weight}
                     onChange={(e) =>
@@ -609,7 +617,7 @@ export default function CodesPage() {
                     }
                   />
                 </div>
-                <div>
+                <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     상품 URL
                   </label>

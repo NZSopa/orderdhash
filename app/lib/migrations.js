@@ -130,7 +130,6 @@ async function runMigrations() {
         address TEXT,
         phone_number TEXT,
         unit_value INTEGER DEFAULT 0,
-        order_type TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `).run()
@@ -185,6 +184,27 @@ async function runMigrations() {
     }
 
     createInventoryTable(db)
+
+    // shipping_list 테이블 생성
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS shipping_list (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sl_number TEXT NOT NULL,
+        sales_site TEXT,
+        consignee_name TEXT,
+        product_code TEXT,
+        product_name TEXT,
+        set_qty INTEGER DEFAULT 1,
+        quantity INTEGER DEFAULT 1,
+        shipping_country TEXT,
+        tracking_number TEXT,
+        shipping_date TEXT,
+        order_date TEXT,
+        weight REAL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run()
 
     // Products_UnitPrice 테이블 생성
     db.exec(`

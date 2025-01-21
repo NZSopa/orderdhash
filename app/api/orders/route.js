@@ -35,10 +35,12 @@ export async function GET(request) {
       WITH PagedData AS (
         SELECT 
           o.*,
-          pm.product_name,
+          sl.product_code,
+          sl.product_name,
+          sl.sales_price,
           COUNT(*) OVER() as total_count
         FROM orders o
-        LEFT JOIN product_master pm ON o.sku = pm.product_code
+        LEFT JOIN sales_listings sl ON o.sku = sl.sales_code
         WHERE (
           o.reference_no LIKE ? OR
           o.sku LIKE ? OR
@@ -119,9 +121,8 @@ export async function POST(req) {
           kana,
           postal_code,
           address,
-          phone_number,
-          sales_site
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          phone_number
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
       try {
@@ -137,8 +138,7 @@ export async function POST(req) {
               order.kana,
               order.postal_code,
               order.address,
-              order.phone_number,
-              order.sales_site
+              order.phone_number
             ])
           }
         })

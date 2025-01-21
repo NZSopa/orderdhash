@@ -2,20 +2,6 @@ import Papa from 'papaparse'
 import iconv from 'iconv-lite'
 import { getProductNameByCode } from './db'
 
-function getSalesSiteFromSku(sku, orderType) {
-  if (!sku) return orderType
-
-  const skuUpper = sku.toUpperCase()
-  if (skuUpper.startsWith('A-')) {
-    return 'amazon'
-  } else if (skuUpper.startsWith('Y-')) {
-    return 'yahoo'
-  } else if (skuUpper.startsWith('R-')) {
-    return 'rakuten'
-  }
-  return orderType
-}
-
 export async function processOrders(files, orderType, db) {
   try {
     let orders = []
@@ -63,9 +49,6 @@ export async function processOrders(files, orderType, db) {
           message: '이미 등록된 주문번호입니다.'
         })
       } else {
-        // 상품 코드에서 판매 사이트 추출
-        const sales_site = getSalesSiteFromSku(order['sku'], orderType)
-        
         validOrders.push({
           reference_no: order['reference No.'],
           sku: order['sku'],
@@ -77,7 +60,6 @@ export async function processOrders(files, orderType, db) {
           postal_code: order['postal_code'] || '',
           address: order['Consignees Address'],
           phone_number: order['ConsigneesPhonenumber'],
-          sales_site: sales_site,
           created_at: new Date().toISOString()
         })
       }
@@ -89,11 +71,11 @@ export async function processOrders(files, orderType, db) {
         INSERT INTO orders (
           reference_no, sku, original_product_name,
           quantity, unit_value, consignee_name, kana,
-          postal_code, address, phone_number, sales_site, created_at
+          postal_code, address, phone_number, created_at
         ) VALUES (
           @reference_no, @sku, @original_product_name,
           @quantity, @unit_value, @consignee_name, @kana,
-          @postal_code, @address, @phone_number, @sales_site, @created_at
+          @postal_code, @address, @phone_number, @created_at
         )
       `)
 

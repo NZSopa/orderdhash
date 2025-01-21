@@ -13,11 +13,12 @@ export default function OrderList() {
   const [totalPages, setTotalPages] = useState(0)
   const [total, setTotal] = useState(0)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [selectedDate, setSelectedDate] = useState('')
   const [filteredOrders, setFilteredOrders] = useState(null)
   const [filterType, setFilterType] = useState(null)
   const [pageSize, setPageSize] = useState(20)
   const [isTableCompact, setIsTableCompact] = useState(false)
+  const [initialized, setInitialized] = useState(false)
 
   const loadOrders = async () => {
     setLoading(true)
@@ -56,13 +57,18 @@ export default function OrderList() {
   }
 
   useEffect(() => {
-    const today = new Date().toISOString().split('T')[0]
-    setSelectedDate(today)
-  }, [])
+    if (!initialized) {
+      const today = new Date().toISOString().split('T')[0]
+      setSelectedDate(today)
+      setInitialized(true)
+    }
+  }, [initialized])
 
   useEffect(() => {
-    loadOrders()
-  }, [page, pageSize, searchQuery, selectedDate])
+    if (selectedDate && initialized) {
+      loadOrders()
+    }
+  }, [page, pageSize, searchQuery, selectedDate, initialized])
 
   const handleSearch = (e) => {
     setSearchQuery(e.target.value)
@@ -359,27 +365,41 @@ export default function OrderList() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead>
                 <tr className="bg-gray-50">
-                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">주문번호</th>
-                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">수취인</th>
-                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">연락처</th>
-                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">주소</th>
-                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">상품코드</th>
-                  <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">수량</th>
-                  <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">단가</th>
-                  <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">금액</th>
+                  <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-[10%]">주문번호</th>
+                  <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-[8%]">수취인</th>
+                  <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-[8%]">연락처</th>
+                  <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-[20%]">주소</th>
+                  <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-[8%]">상품코드</th>
+                  <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-[30%]">상품명</th>
+                  <th scope="col" className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-[5%]">수량</th>
+                  <th scope="col" className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-[6%]">단가</th>
+                  <th scope="col" className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap w-[5%]">금액</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {displayOrders.map((order, index) => (
                   <tr key={`${order.reference_no}-${index}`} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-blue-600">{order.reference_no}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{order.consignee_name}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{order.phone_number}</td>
-                    <td className="px-3 py-2 text-sm text-gray-500 max-w-md truncate">{order.address}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{order.product_code}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900 text-right">{order.quantity}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900 text-right">{order.unit_value.toLocaleString()}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900 text-right">{(order.quantity * order.unit_value).toLocaleString()}</td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm text-blue-600">{order.reference_no}</td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900">{order.consignee_name}</td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-500">{order.phone_number}</td>
+                    <td className="px-2 py-2 text-sm text-gray-500 truncate max-w-[300px]">{order.address}</td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{order.product_code}</td>
+                    <td className="px-2 py-2">
+                      <div className="text-sm text-gray-900 truncate max-w-[400px]">{order.product_name}</div>
+                      {order.original_product_name && order.original_product_name !== order.product_name && (
+                        <div className="text-xs text-gray-500 mt-0.5 truncate max-w-[400px]">{order.original_product_name}</div>
+                      )}
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900 text-right">{order.quantity}</td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
+                      {order.sales_price ? order.sales_price.toLocaleString() : order.unit_value.toLocaleString()}
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
+                      {order.sales_price 
+                        ? (order.quantity * order.sales_price).toLocaleString()
+                        : (order.quantity * order.unit_value).toLocaleString()
+                      }
+                    </td>
                   </tr>
                 ))}
               </tbody>
