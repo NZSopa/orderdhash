@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server'
 import { getDB } from '../../lib/db'
 
 export async function GET(request) {
-  const db = getDB()
+  let db = null
   try {
+    db = getDB()
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page')) || 1
     const limit = parseInt(searchParams.get('limit')) || 20
@@ -11,52 +12,53 @@ export async function GET(request) {
     const date = searchParams.get('date')
     const offset = (page - 1) * limit
 
-    let query = `
-      WITH filtered_orders AS (
-        SELECT * FROM orders
-        WHERE (
-          reference_no LIKE ? 
-          OR sku LIKE ?
-          OR product_name LIKE ?
-          OR consignee_name LIKE ?
-          OR post_code LIKE ?
-          OR address LIKE ?
-          OR phone_number LIKE ?
-        )
-        ${date ? "AND DATE(created_at) = DATE(?)" : ""}
-      )
-      SELECT * FROM filtered_orders
-      ORDER BY created_at DESC
-      LIMIT ? OFFSET ?
-    `
-
     const searchPattern = `%${search}%`
-    let params = Array(7).fill(searchPattern)
+    const baseParams = [
+      searchPattern, // reference_no
+      searchPattern, // sku
+      searchPattern, // consignee_name
+      searchPattern, // postal_code
+      searchPattern, // address
+      searchPattern  // phone_number
+    ]
+
+    let params = [...baseParams]
+    let dateCondition = ''
+    
     if (date) {
+      dateCondition = "AND DATE(o.created_at) = DATE(?)"
       params.push(date)
     }
-    params = params.concat([limit, offset])
-    
-    const countQuery = `
-      SELECT COUNT(*) as total
-      FROM orders
-      WHERE (
-        reference_no LIKE ? 
-        OR sku LIKE ?
-        OR product_name LIKE ?
-        OR consignee_name LIKE ?
-        OR post_code LIKE ?
-        OR address LIKE ?
-        OR phone_number LIKE ?
+
+    // WITH 절을 사용하여 한 번의 쿼리로 처리
+    const stmt = db.prepare(`
+      WITH PagedData AS (
+        SELECT 
+          o.*,
+          pm.product_name,
+          COUNT(*) OVER() as total_count
+        FROM orders o
+        LEFT JOIN product_master pm ON o.sku = pm.product_code
+        WHERE (
+          o.reference_no LIKE ? OR
+          o.sku LIKE ? OR
+          o.consignee_name LIKE ? OR
+          o.postal_code LIKE ? OR
+          o.address LIKE ? OR
+          o.phone_number LIKE ?
+        )
+        ${dateCondition}
+        ORDER BY o.created_at DESC
+        LIMIT ? OFFSET ?
       )
-      ${date ? "AND DATE(created_at) = DATE(?)" : ""}
-    `
-    
-    const orders = db.prepare(query).all(...params)
-    const { total } = db.prepare(countQuery).get(...params.slice(0, date ? 8 : 7))
-    
+      SELECT * FROM PagedData
+    `)
+
+    const orders = stmt.all(...params, limit, offset)
+    const total = orders.length > 0 ? orders[0].total_count : 0
+
     return NextResponse.json({
-      data: orders,
+      data: orders.map(({ total_count, ...order }) => order),
       total,
       page,
       totalPages: Math.ceil(total / limit)
@@ -108,20 +110,36 @@ export async function POST(req) {
     if (validOrders.length > 0) {
       const stmt = db.prepare(`
         INSERT INTO orders (
-          reference_no, sku, product_name, original_product_name,
-          quantity, unit_value, consignee_name, kana,
-          post_code, address, phone_number, created_at
-        ) VALUES (
-          @reference_no, @sku, @product_name, @original_product_name,
-          @quantity, @unit_value, @consignee_name, @kana,
-          @post_code, @address, @phone_number, @created_at
-        )
+          reference_no,
+          sku,
+          original_product_name,
+          quantity,
+          unit_value,
+          consignee_name,
+          kana,
+          postal_code,
+          address,
+          phone_number,
+          sales_site
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
       try {
         const insertMany = db.transaction((orders) => {
           for (const order of orders) {
-            stmt.run(order)
+            stmt.run([
+              order.reference_no,
+              order.sku,
+              order.original_product_name,
+              order.quantity,
+              order.unit_value,
+              order.consignee_name,
+              order.kana,
+              order.postal_code,
+              order.address,
+              order.phone_number,
+              order.sales_site
+            ])
           }
         })
 
@@ -152,4 +170,30 @@ export async function POST(req) {
       { status: 500 }
     )
   }
-} 
+}
+
+export async function DELETE(req) {
+  const db = getDB()
+  try {
+    const { reference_no } = await req.json()
+    console.log('Received reference_no:', reference_no)
+    
+    const stmt = db.prepare(deleteQuery)
+    stmt.run(reference_no)
+    
+    return NextResponse.json({
+      success: true,
+      message: '주문이 성공적으로 삭제되었습니다.'
+    })
+  } catch (error) {
+    console.error('Error deleting order:', error)
+    return NextResponse.json(
+      { error: '주문 삭제 중 오류가 발생했습니다.' },
+      { status: 500 }
+    )
+  }
+}
+
+const deleteQuery = `
+  DELETE FROM orders WHERE reference_no = ?
+` 

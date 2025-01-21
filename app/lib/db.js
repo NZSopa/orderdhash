@@ -4,287 +4,128 @@ import path from 'path'
 let db = null
 
 export function getDB() {
-  if (!db) {
-    try {
-      db = new Database(path.join(process.cwd(), 'data', 'orderdash.db'), {
-        verbose: console.log,
-        fileMustExist: true
-      })
-      
-      // 데이터베이스 설정
-      db.pragma('journal_mode = WAL')
-      db.pragma('foreign_keys = ON')
-    } catch (error) {
-      console.error('Database connection error:', error)
-      throw error
-    }
+  if (db) return db
+  
+  try {
+    const dbPath = path.join(process.cwd(), 'data.db')
+    db = new Database(dbPath)
+    
+    // WAL 모드 활성화
+    db.pragma('journal_mode = WAL')
+    
+    // 외래키 제약 활성화
+    db.pragma('foreign_keys = ON')
+
+    // 캐시 크기 최적화
+    db.pragma('cache_size = -2000') // 약 2MB 캐시
+
+    // 제품 마스터 테이블
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS product_master (
+        product_code TEXT PRIMARY KEY,
+        product_name TEXT NOT NULL,
+        brand TEXT,
+        supplier TEXT,
+        image_url TEXT,
+        description TEXT,
+        barcode TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CHECK (product_code <> '')
+      )
+    `)
+
+    // 제품 단가 테이블
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS product_unit_prices (
+        product_code TEXT,
+        year_month TEXT,
+        price REAL NOT NULL CHECK (price >= 0),
+        memo TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (product_code, year_month),
+        FOREIGN KEY (product_code) REFERENCES product_master(product_code) ON DELETE CASCADE,
+        CHECK (year_month LIKE '____-__')
+      )
+    `)
+
+    // 인덱스 생성
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_product_unit_prices_year_month ON product_unit_prices(year_month);
+      CREATE INDEX IF NOT EXISTS idx_product_master_name ON product_master(product_name);
+      CREATE INDEX IF NOT EXISTS idx_product_unit_prices_memo ON product_unit_prices(memo);
+    `)
+
+    // 주문 테이블
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reference_no TEXT NOT NULL,
+        sku TEXT NOT NULL,
+        original_product_name TEXT,
+        quantity INTEGER NOT NULL DEFAULT 1,
+        unit_value INTEGER,
+        consignee_name TEXT NOT NULL,
+        kana TEXT,
+        postal_code TEXT NOT NULL CHECK (length(replace(postal_code, '-', '')) = 7),
+        address TEXT NOT NULL,
+        phone_number TEXT NOT NULL CHECK (phone_number NOT LIKE '%[^0-9-]%'),
+        sales_site TEXT NOT NULL,
+        created_at TEXT NOT NULL CHECK (created_at LIKE '____-__-__ __:__:__'),
+        FOREIGN KEY (sku) REFERENCES product_master(product_code)
+      )
+    `)
+
+    return db
+  } catch (error) {
+    console.error('Error getting database connection:', error)
+    throw error
   }
-  return db
+}
+
+export function closeDB() {
+  try {
+    if (db) {
+      db.close()
+      db = null
+    }
+  } catch (error) {
+    console.error('Error closing database:', error)
+  }
+}
+
+export function getProductNameByCode(db, productCode, defaultName = '') {
+  try {
+    const result = db.prepare('SELECT product_name FROM product_master WHERE product_code = ?')
+      .get(productCode)
+    return result ? result.product_name : defaultName
+  } catch (error) {
+    console.error('Error getting product name:', error)
+    return defaultName
+  }
 }
 
 // 애플리케이션 종료 시 데이터베이스 연결 닫기
 process.on('exit', () => {
-  if (db) {
-    console.log('Closing database connection...')
-    db.close()
-  }
+  closeDB()
 })
 
 // 예기치 않은 종료 시에도 데이터베이스 연결 닫기
 process.on('SIGINT', () => {
-  if (db) {
-    console.log('Closing database connection...')
-    db.close()
-  }
+  closeDB()
   process.exit(0)
 })
 
-// 상품 코드 조회
-export async function getProductCodes() {
+// 데이터베이스 초기화 함수
+export async function initDB() {
   const db = getDB()
   try {
-    const codes = db.prepare('SELECT * FROM product_codes ORDER BY sales_code').all()
-    return codes
+    console.log('Database initialized successfully')
   } finally {
-    db.close()
+    closeDB()
   }
-}
-
-// 상품 코드 검색
-export async function searchProductCodes(query) {
-  const db = getDB()
-  try {
-    const codes = db.prepare(`
-      SELECT * FROM product_codes 
-      WHERE sales_code LIKE ? OR product_name LIKE ?
-      ORDER BY sales_code
-    `).all(`%${query}%`, `%${query}%`)
-    return codes
-  } finally {
-    db.close()
-  }
-}
-
-// 상품 코드 저장
-export async function saveProductCode(code) {
-  const db = getDB()
-  try {
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO product_codes (
-        sales_code, product_name, set_qty, product_code, 
-        sales_price, weight, sales_site, updated_at, created_at
-      ) VALUES (
-        @sales_code, @product_name, @set_qty, @product_code,
-        @sales_price, @weight, @sales_site,
-        CURRENT_TIMESTAMP,
-        COALESCE((SELECT created_at FROM product_codes WHERE sales_code = @sales_code), CURRENT_TIMESTAMP)
-      )
-    `)
-    stmt.run(code)
-    return true
-  } finally {
-    db.close()
-  }
-}
-
-// 상품 코드 일괄 저장
-export async function bulkSaveProductCodes(codes) {
-  const db = getDB()
-  try {
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO product_codes (
-        sales_code, product_name, set_qty, product_code,
-        sales_price, weight, sales_site, updated_at, created_at
-      ) VALUES (
-        @sales_code, @product_name, @set_qty, @product_code,
-        @sales_price, @weight, @sales_site,
-        CURRENT_TIMESTAMP,
-        COALESCE((SELECT created_at FROM product_codes WHERE sales_code = @sales_code), CURRENT_TIMESTAMP)
-      )
-    `)
-    
-    const insertMany = db.transaction((items) => {
-      for (const item of items) {
-        stmt.run(item)
-      }
-    })
-    
-    insertMany(codes)
-    return true
-  } finally {
-    db.close()
-  }
-}
-
-// 판매 사이트 조회
-export async function getSalesSites() {
-  const db = getDB()
-  try {
-    const sites = db.prepare('SELECT * FROM sales_sites ORDER BY code').all()
-    return sites
-  } finally {
-    db.close()
-  }
-}
-
-// 판매 사이트 저장
-export async function saveSalesSite(site) {
-  const db = getDB()
-  try {
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO sales_sites (
-        code, name, updated_at, created_at
-      ) VALUES (
-        @code, @name,
-        CURRENT_TIMESTAMP,
-        COALESCE((SELECT created_at FROM sales_sites WHERE code = @code), CURRENT_TIMESTAMP)
-      )
-    `)
-    stmt.run(site)
-    return true
-  } catch (error) {
-    console.error('Error saving sales site:', error)
-    throw error
-  }
-}
-
-// 판매 사이트 삭제
-export async function deleteSalesSite(code) {
-  const db = getDB()
-  try {
-    db.prepare('DELETE FROM sales_sites WHERE code = ?').run(code)
-    return true
-  } catch (error) {
-    console.error('Error deleting sales site:', error)
-    throw error
-  }
-}
-
-// 파일 업로드 이력 저장
-export function saveFileUpload(fileName, fileType, status, processedCount, errorMessage = null) {
-  const db = getDB()
-  try {
-    const stmt = db.prepare(`
-      INSERT INTO file_uploads (
-        file_name, file_type, status, processed_count, error_message,
-        created_at
-      ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    `)
-    
-    stmt.run(fileName, fileType, status, processedCount, errorMessage)
-    return true
-  } catch (error) {
-    console.error('Error saving file upload:', error)
-    throw error
-  }
-}
-
-// 주문 데이터 저장
-export function saveOrders(orders, orderType) {
-  const db = getDB()
-  try {
-    const stmt = db.prepare(`
-      INSERT INTO orders (
-        reference_no, sku, product_name, original_product_name, quantity,
-        consignee_name, kana, post_code, address,
-        phone_number, unit_value, order_type,
-        created_at
-      ) VALUES (
-        @reference_no, @sku, @product_name, @original_product_name, @quantity,
-        @consignee_name, @kana, @post_code, @address,
-        @phone_number, @unit_value, @order_type,
-        CURRENT_TIMESTAMP
-      )
-    `)
-
-    const insertMany = db.transaction((items) => {
-      for (const item of items) {
-        const productName = item['product-name']
-        stmt.run({
-          reference_no: item['reference No.'],
-          sku: item.sku,
-          product_name: productName,
-          original_product_name: item.originalProductName || productName,
-          quantity: item['quantity-purchased'],
-          consignee_name: item['Consignees NAME'],
-          kana: item['Kana'],
-          post_code: item['ConsigneesPOST'],
-          address: item['Consignees Address'],
-          phone_number: item['ConsigneesPhonenumber'],
-          unit_value: item['unit value'],
-          order_type: orderType
-        })
-      }
-    })
-
-    insertMany(orders)
-    return true
-  } catch (error) {
-    console.error('Error saving orders:', error)
-    throw error
-  }
-}
-
-export function getProductNameByCode(db, productCode, originalName) {
-  try {
-    const stmt = db.prepare('SELECT product_name, set_qty FROM product_codes WHERE sales_code = ?')
-    const result = stmt.get(productCode)
-    if (result) {
-      const setQty = parseInt(result.set_qty) || 1
-      const codeName = setQty >= 2 ? `${result.product_name} ${setQty} SETS` : result.product_name
-      return codeName
-    }
-    return originalName
-  } catch (error) {
-    console.error('Error getting product name:', error)
-    return originalName
-  }
-}
-
-export function initDB() {
-  const db = getDB()
-  
-  // 기존 테이블이 있는지 확인
-  const tableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='orders'").get()
-  
-  if (!tableExists) {
-    // 테이블이 없으면 새로 생성
-    db.exec(`
-      CREATE TABLE orders (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        reference_no TEXT NOT NULL UNIQUE,
-        sku TEXT,
-        product_name TEXT,
-        original_product_name TEXT,
-        quantity INTEGER DEFAULT 1,
-        unit_value REAL DEFAULT 0,
-        consignee_name TEXT,
-        kana TEXT,
-        post_code TEXT,
-        address TEXT,
-        phone_number TEXT,
-        order_type TEXT NOT NULL,
-        sales_site TEXT,
-        created_at TEXT NOT NULL
-      )
-    `)
-  } else {
-    // 테이블이 있으면 sales_site 컬럼이 있는지 확인
-    const columnExists = db.prepare("SELECT * FROM pragma_table_info('orders') WHERE name='sales_site'").get()
-    
-    if (!columnExists) {
-      // sales_site 컬럼 추가
-      db.exec(`
-        ALTER TABLE orders ADD COLUMN sales_site TEXT;
-      `)
-      console.log('Added sales_site column to orders table')
-    }
-  }
-
-  return db
 }
 
 // 애플리케이션 시작 시 DB 초기화 실행
-initDB()
-
-export default db 
+initDB().catch(console.error) 

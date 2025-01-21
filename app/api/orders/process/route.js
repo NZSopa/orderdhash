@@ -113,7 +113,7 @@ export async function POST(request) {
   } finally {
     if (db) {
       try {
-        await db.end()
+        closeDB(db)
       } catch (error) {
         console.error('Error closing database connection:', error)
       }

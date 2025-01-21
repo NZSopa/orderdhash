@@ -69,16 +69,14 @@ export async function processOrders(files, orderType, db) {
         validOrders.push({
           reference_no: order['reference No.'],
           sku: order['sku'],
-          product_name: order['product-name'],
           original_product_name: order['originalProductName'],
           quantity: parseInt(order['quantity-purchased']) || 1,
           unit_value: parseFloat(order['unit value']) || 0,
           consignee_name: order['Consignees NAME'],
           kana: order['Kana'],
-          post_code: order['ConsigneesPOST'],
+          postal_code: order['postal_code'] || '',
           address: order['Consignees Address'],
           phone_number: order['ConsigneesPhonenumber'],
-          order_type: orderType,
           sales_site: sales_site,
           created_at: new Date().toISOString()
         })
@@ -89,19 +87,24 @@ export async function processOrders(files, orderType, db) {
     if (validOrders.length > 0) {
       const stmt = db.prepare(`
         INSERT INTO orders (
-          reference_no, sku, product_name, original_product_name,
+          reference_no, sku, original_product_name,
           quantity, unit_value, consignee_name, kana,
-          post_code, address, phone_number, order_type, sales_site, created_at
+          postal_code, address, phone_number, sales_site, created_at
         ) VALUES (
-          @reference_no, @sku, @product_name, @original_product_name,
+          @reference_no, @sku, @original_product_name,
           @quantity, @unit_value, @consignee_name, @kana,
-          @post_code, @address, @phone_number, @order_type, @sales_site, @created_at
+          @postal_code, @address, @phone_number, @sales_site, @created_at
         )
       `)
 
       const insertMany = db.transaction((orders) => {
         for (const order of orders) {
-          stmt.run(order)
+          const orderData = {
+            ...order,
+            original_product_name: order.original_product_name || order.original_product_name
+          }
+          delete orderData.original_product_name
+          stmt.run(orderData)
         }
       })
 
@@ -157,7 +160,7 @@ async function processAmazonOrder(fileContent, db) {
                 'quantity-purchased': order['quantity-purchased'] || '1',
                 'Consignees NAME': order['recipient-name'] || '',
                 'Kana': order['buyer-name'] || '',
-                'ConsigneesPOST': order['ship-postal-code'] || '',
+                'postal_code': order['ship-postal-code'] || '',
                 'Consignees Address': [
                   order['ship-state'],
                   order['ship-city'],
@@ -248,7 +251,7 @@ async function processYahooOrder(orderContent, productContent, db) {
                     'unit value': product.UnitPrice || '0',
                     'Consignees NAME': order.ShipName || '',
                     'Kana': order.ShipNameKana || '',
-                    'ConsigneesPOST': order.ShipZipCode || '',
+                    'postal_code': order.ShipZipCode || '',
                     'Consignees Address': [
                       order.ShipPrefecture,
                       order.ShipCity,
