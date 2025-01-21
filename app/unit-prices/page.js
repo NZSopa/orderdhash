@@ -231,7 +231,14 @@ export default function UnitPricesPage() {
             alert(`${prices.length}개의 원가 데이터가 업로드되었습니다.`)
             await loadPrices()
           } else {
-            throw new Error(result.error || '업로드 중 오류가 발생했습니다.')
+            let errorMessage = result.error || '업로드 중 오류가 발생했습니다.'
+            if (result.missingProducts) {
+              errorMessage += '\n\n누락된 제품 코드:\n' + 
+                result.missingProducts.map(item => 
+                  `- ${item.product_code} (${item.year_month})`
+                ).join('\n')
+            }
+            throw new Error(errorMessage)
           }
         } catch (error) {
           console.error('Error processing file:', error)

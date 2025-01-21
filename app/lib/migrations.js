@@ -1,7 +1,7 @@
 'use server'
 
-import sqlite3 from 'better-sqlite3'
-import path from 'path'
+const sqlite3 = require('better-sqlite3')
+const path = require('path')
 
 function getDB() {
   return sqlite3(path.join(process.cwd(), 'data', 'orderdash.db'))
@@ -28,7 +28,7 @@ const createInventoryTable = db => {
   }
 }
 
-export async function runMigrations() {
+async function runMigrations() {
   const db = getDB()
   try {
     // 판매 사이트 테이블 생성
@@ -55,7 +55,7 @@ export async function runMigrations() {
 
     // 상품 코드 테이블 생성
     db.prepare(`
-      CREATE TABLE IF NOT EXISTS product_codes (
+      CREATE TABLE IF NOT EXISTS sales_listings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         sales_code TEXT UNIQUE NOT NULL,
         product_name TEXT NOT NULL,
@@ -70,9 +70,44 @@ export async function runMigrations() {
       )
     `).run()
 
+    // 기존 데이터 복사
+    try {
+      db.prepare(`
+        INSERT OR IGNORE INTO sales_listings (
+          sales_code,
+          product_name,
+          set_qty,
+          product_code,
+          sales_price,
+          weight,
+          sales_site,
+          site_url,
+          created_at,
+          updated_at
+        )
+        SELECT
+          sales_code,
+          product_name,
+          set_qty,
+          product_code,
+          sales_price,
+          weight,
+          sales_site,
+          site_url,
+          created_at,
+          updated_at
+        FROM product_codes
+      `).run()
+    } catch (error) {
+      // product_codes 테이블이 없는 경우 무시
+      if (!error.message.includes('no such table')) {
+        throw error
+      }
+    }
+
     // site_url 칼럼 추가
     try {
-      db.prepare('ALTER TABLE product_codes ADD COLUMN site_url TEXT').run()
+      db.prepare('ALTER TABLE sales_listings ADD COLUMN site_url TEXT').run()
     } catch (error) {
       // 칼럼이 이미 존재하는 경우 무시
       if (!error.message.includes('duplicate column name')) {
@@ -171,4 +206,8 @@ export async function runMigrations() {
   } finally {
     db.close()
   }
-} 
+}
+
+module.exports = {
+  runMigrations
+}; 

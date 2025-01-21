@@ -11,7 +11,6 @@ const menuItems = [
     name: '주문 관리',
     icon: FaShoppingCart,
     items: [
-      { name: '주문 업로드', href: '/orders' },
       { name: '주문 목록', href: '/orders/list' },
     ],
   },
@@ -19,18 +18,14 @@ const menuItems = [
     name: '재고 관리',
     icon: FaBox,
     items: [
-      { name: '재고 업로드', href: '/inventory' },
       { name: '재고 목록', href: '/inventory/list' },
     ],
   },
   {
-    name: '상품 관리',
+    name: '출품 관리',
     icon: FaStore,
     items: [
       { name: '출품 정보', href: '/codes' },
-      { name: '판매 사이트', href: '/sites' },
-      { name: '판매 가격', href: '/prices' },
-      { name: '원가 관리', href: '/unit-prices' },
     ],
   },
   {
@@ -48,6 +43,11 @@ const menuItems = [
     icon: FaCog,
     items: [
       { name: '제품 코드 관리', href: '/settings/product-codes' },
+      { name: '판매 사이트', href: '/sites' },
+      { name: '판매 가격', href: '/prices' },
+      { name: '원가 관리', href: '/unit-prices' },
+      { name: '재고 업로드', href: '/inventory' },
+      { name: '주문 업로드', href: '/orders' },
     ],
   },
 ]

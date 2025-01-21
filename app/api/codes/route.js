@@ -36,7 +36,7 @@ export async function GET(request) {
         SELECT 
           *,
           COUNT(*) OVER() as total_count
-        FROM product_codes 
+        FROM sales_listings 
         ${whereClause}
         ORDER BY ${actualSortField} ${sortOrder}
         LIMIT ? OFFSET ?
@@ -71,14 +71,14 @@ export async function POST(request) {
     const body = await request.json()
     
     const stmt = db.prepare(`
-      INSERT OR REPLACE INTO product_codes (
+      INSERT OR REPLACE INTO sales_listings (
         sales_code, product_name, set_qty, product_code,
         sales_price, weight, sales_site, site_url, updated_at, created_at
       ) VALUES (
         @sales_code, @product_name, @set_qty, @product_code,
         @sales_price, @weight, @sales_site, @site_url,
         CURRENT_TIMESTAMP,
-        COALESCE((SELECT created_at FROM product_codes WHERE sales_code = @sales_code), CURRENT_TIMESTAMP)
+        COALESCE((SELECT created_at FROM sales_listings WHERE sales_code = @sales_code), CURRENT_TIMESTAMP)
       )
     `)
 
@@ -139,7 +139,7 @@ export async function DELETE(request) {
         )
       }
 
-      db.prepare('DELETE FROM product_codes').run()
+      db.prepare('DELETE FROM sales_listings').run()
       return NextResponse.json({ 
         message: '모든 코드가 삭제되었습니다.',
         success: true 
@@ -153,7 +153,7 @@ export async function DELETE(request) {
       )
     }
 
-    db.prepare('DELETE FROM product_codes WHERE sales_code = ?').run(salesCode)
+    db.prepare('DELETE FROM sales_listings WHERE sales_code = ?').run(salesCode)
     return NextResponse.json({ 
       message: '코드가 삭제되었습니다.',
       success: true 

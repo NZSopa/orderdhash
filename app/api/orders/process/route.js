@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getDB } from '@/app/lib/db'
+import { getDB, closeDB } from '@/app/lib/db'
 import { processOrders } from '@/app/lib/orderProcessor'
 
 export async function POST(request) {

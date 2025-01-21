@@ -101,9 +101,8 @@ export async function processOrders(files, orderType, db) {
         for (const order of orders) {
           const orderData = {
             ...order,
-            original_product_name: order.original_product_name || order.original_product_name
+            original_product_name: order.original_product_name || ''
           }
-          delete orderData.original_product_name
           stmt.run(orderData)
         }
       })
@@ -156,7 +155,7 @@ async function processAmazonOrder(fileContent, db) {
                 'reference No.': order['order-id'] || '',
                 'sku': order['sku'] || '',
                 'product-name': productName,
-                'originalProductName': order['product-name'],
+                'originalProductName': order['product-name'] || '',
                 'quantity-purchased': order['quantity-purchased'] || '1',
                 'Consignees NAME': order['recipient-name'] || '',
                 'Kana': order['buyer-name'] || '',
@@ -246,7 +245,7 @@ async function processYahooOrder(orderContent, productContent, db) {
                     'reference No.': product.Id || '',
                     'sku': product.ItemId || '',
                     'product-name': productName,
-                    'originalProductName': product.Title,
+                    'originalProductName': product.Title || '',
                     'quantity-purchased': product.Quantity || '1',
                     'unit value': product.UnitPrice || '0',
                     'Consignees NAME': order.ShipName || '',

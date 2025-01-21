@@ -296,271 +296,125 @@ export default function OrderList() {
   )
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center bg-gradient-to-r from-white to-blue-50 p-4 rounded-lg shadow-sm border border-blue-100">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-            <span className="bg-blue-100 p-2 rounded-lg mr-3">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            </span>
-            주문 목록
-          </h2>
-          <p className="mt-1 ml-11 text-sm text-gray-600 bg-white/50 px-3 py-1 rounded-full inline-block">
-            처리된 모든 주문을 확인하고 검색할 수 있습니다.
-          </p>
-        </div>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FaCalendarAlt className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={handleDateChange}
-                className="block w-44 pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              />
-            </div>
-            <button
-              onClick={handleTodayClick}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Today
-            </button>
-          </div>
+    <div>
+      {/* 검색 및 필터 컨트롤 */}
+      <div className="mb-4 flex flex-wrap gap-4 items-center justify-between">
+        <div className="flex gap-4 items-center">
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FaSearch className="h-5 w-5 text-gray-400" />
-            </div>
             <input
               type="text"
+              placeholder="주문번호 또는 수취인으로 검색..."
               value={searchQuery}
               onChange={handleSearch}
-              placeholder="주문번호, 상품코드, 수취인 등으로 검색"
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              className="pl-10 pr-4 py-2 border rounded-lg w-64 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
+            <FaSearch className="absolute left-3 top-3 text-gray-400" />
           </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={handleDateChange}
+              className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <button
+              onClick={handleTodayClick}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"
+            >
+              <FaCalendarAlt /> 오늘
+            </button>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <select
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+            className="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value={15}>15개씩</option>
+            <option value={30}>30개씩</option>
+            <option value={50}>50개씩</option>
+          </select>
           <button
             onClick={handleDeleteAll}
-            disabled={isDeleting || loading || total === 0}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isDeleting}
+            className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 bg-red-50 rounded-lg hover:bg-red-100 disabled:opacity-50"
           >
-            <FaTrash className="mr-2 h-4 w-4" />
-            {isDeleting ? '삭제 중...' : '전체 삭제'}
+            <FaTrash /> 전체 삭제
           </button>
         </div>
       </div>
 
-      {loading ? (
-        <div className="text-center py-4">
-          <p className="text-gray-500">로딩 중...</p>
-        </div>
-      ) : error ? (
-        <div className="rounded-md bg-red-50 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <>
-          {renderSummary()}
+      {/* 요약 정보 */}
+      {summaryData && renderSummary()}
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
+      {/* 주문 목록 테이블 */}
+      {loading ? (
+        <div className="text-center py-8">로딩 중...</div>
+      ) : error ? (
+        <div className="text-center py-8 text-red-600">{error}</div>
+      ) : (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">주문번호</th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">수취인</th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">연락처</th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">주소</th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">상품코드</th>
+                  <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">수량</th>
+                  <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">단가</th>
+                  <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">금액</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {displayOrders.map((order, index) => (
+                  <tr key={`${order.reference_no}-${index}`} className="hover:bg-gray-50">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-blue-600">{order.reference_no}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{order.consignee_name}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{order.phone_number}</td>
+                    <td className="px-3 py-2 text-sm text-gray-500 max-w-md truncate">{order.address}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{order.product_code}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900 text-right">{order.quantity}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900 text-right">{order.unit_value.toLocaleString()}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900 text-right">{(order.quantity * order.unit_value).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* 페이지네이션 */}
+          <div className="px-3 py-3 border-t border-gray-200 bg-gray-50 sm:px-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
                 <p className="text-sm text-gray-700">
-                  전체{' '}
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
-                    {total}
-                  </span>
-                  {' '}건 중{' '}
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                    {(page - 1) * pageSize + 1}
-                  </span>
-                  {' '}-{' '}
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                    {Math.min(page * pageSize, total)}
-                  </span>
-                  {' '}건
+                  총 <span className="font-medium">{total}</span>건 중{' '}
+                  <span className="font-medium">{(page - 1) * pageSize + 1}</span>-
+                  <span className="font-medium">{Math.min(page * pageSize, total)}</span>건
                 </p>
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
-                  <span className="text-sm font-medium text-gray-600">페이지당 데이터 갯수</span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value))
-                      setPage(1)
-                    }}
-                    className="block w-32 pl-3 pr-10 py-1.5 text-sm bg-indigo-50 border-indigo-200 text-indigo-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md transition-colors hover:bg-indigo-100"
-                  >
-                    <option value={15}>15개</option>
-                    <option value={30}>30개</option>
-                    <option value={50}>50개</option>
-                    <option value={9999}>전체</option>
-                  </select>
-                </div>
-                <button
-                  onClick={() => setIsTableCompact(!isTableCompact)}
-                  className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
-                    ${isTableCompact 
-                      ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                >
-                  {isTableCompact ? '기본 크기로 보기' : '60% 크기로 보기'}
-                </button>
-              </div>
-            </div>
-            <div>
-              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+              <div className="flex items-center space-x-2">
                 <button
                   onClick={() => handlePageChange(page - 1)}
                   disabled={page === 1}
-                  className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
+                  className="px-3 py-1 text-sm bg-white text-gray-500 rounded-md border hover:bg-gray-50 disabled:opacity-50"
                 >
-                  <span className="sr-only">이전</span>
-                  <FaChevronLeft className="h-5 w-5" aria-hidden="true" />
+                  이전
                 </button>
                 <button
                   onClick={() => handlePageChange(page + 1)}
                   disabled={page === totalPages}
-                  className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
+                  className="px-3 py-1 text-sm bg-white text-gray-500 rounded-md border hover:bg-gray-50 disabled:opacity-50"
                 >
-                  <span className="sr-only">다음</span>
-                  <FaChevronRight className="h-5 w-5" aria-hidden="true" />
+                  다음
                 </button>
-              </nav>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <div className="inline-block align-middle">
-              <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
-                <table className="min-w-full divide-y divide-gray-300">
-                  <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
-                    <tr>
-                      <th scope="col" className={`py-1 pl-2 pr-1 text-left font-semibold text-gray-900 sm:pl-3 ${isTableCompact ? 'text-[7px] w-[36px]' : 'text-[11px] w-[60px]'}`}>판매사이트</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[48px]' : 'text-[11px] w-[80px]'}`}>주문번호</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[42px]' : 'text-[11px] w-[70px]'}`}>상품코드</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[60px]' : 'text-[11px] w-[100px]'}`}>상품명</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[18px]' : 'text-[11px] w-[30px]'}`}>수량</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[42px]' : 'text-[11px] w-[70px]'}`}>전체 판매가</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[42px]' : 'text-[11px] w-[70px]'}`}>수취인</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[36px]' : 'text-[11px] w-[60px]'}`}>우편번호</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[48px]' : 'text-[11px] w-[80px]'}`}>주소</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[48px]' : 'text-[11px] w-[80px]'}`}>연락처</th>
-                      <th scope="col" className={`px-1 py-1 text-left font-semibold text-gray-900 ${isTableCompact ? 'text-[7px] w-[36px]' : 'text-[11px] w-[60px]'}`}>판매단가</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 bg-white">
-                    {displayOrders.map((order, index) => {
-                      const totalValue = order.quantity * order.unit_value;
-                      const isHighValue = totalValue > 16600;
-                      
-                      return (
-                        <tr key={`${order.reference_no}-${index}`} className="hover:bg-blue-50 transition-colors">
-                          <td className={`whitespace-nowrap py-0.5 pl-2 pr-1 font-medium text-gray-900 sm:pl-3 ${isTableCompact ? 'text-[7px] w-[36px]' : 'text-[11px] w-[60px]'}`}>
-                            <span className={`inline-flex items-center px-1 py-0.5 rounded font-medium
-                              ${isTableCompact ? 'text-[6px]' : 'text-[10px]'}
-                              ${order.sales_site === 'amazon' ? 'bg-orange-100 text-orange-800' : 
-                                order.sales_site === 'yahoo' ? 'bg-blue-100 text-blue-800' :
-                                order.sales_site === 'rakuten' ? 'bg-red-100 text-red-800' :
-                                order.sales_site === 'NZP' ? 'bg-purple-100 text-purple-800' :
-                                order.sales_site === 'NZSALE' ? 'bg-green-100 text-green-800' :
-                                order.sales_site === 'CATCH' ? 'bg-yellow-100 text-yellow-800' :
-                                order.sales_site === 'TRADEME' ? 'bg-pink-100 text-pink-800' :
-                                'bg-gray-100 text-gray-800'}`}>
-                              {order.sales_site}
-                            </span>
-                          </td>
-                          <td className={`whitespace-nowrap px-1 py-0.5 font-medium text-gray-900 ${isTableCompact ? 'text-[7px] w-[48px]' : 'text-[11px] w-[80px]'}`}>{order.reference_no}</td>
-                          <td className={`whitespace-nowrap px-1 py-0.5 text-gray-600 ${isTableCompact ? 'text-[7px] w-[42px]' : 'text-[11px] w-[70px]'}`}>{order.sku}</td>
-                          <td className={`px-1 py-0.5 text-gray-900 ${isTableCompact ? 'text-[7px] w-[60px]' : 'text-[11px] w-[100px]'}`}>
-                            <div className={`font-medium leading-3 truncate ${isTableCompact ? 'text-[7px]' : 'text-[11px]'}`} title={order.product_name}>{order.product_name}</div>
-                            {order.original_product_name && order.original_product_name !== order.product_name && (
-                              <div className={`text-gray-500 mt-0.5 leading-3 truncate ${isTableCompact ? 'text-[6px]' : 'text-[9px]'}`} title={order.original_product_name}>{order.original_product_name}</div>
-                            )}
-                          </td>
-                          <td className={`whitespace-nowrap px-1 py-0.5 font-medium text-gray-900 ${isTableCompact ? 'text-[7px] w-[18px]' : 'text-[11px] w-[30px]'}`}>{order.quantity}</td>
-                          <td className={`whitespace-nowrap px-1 py-0.5 font-semibold ${isTableCompact ? 'text-[7px] w-[42px]' : 'text-[11px] w-[70px]'} ${isHighValue ? 'text-red-600' : 'text-gray-900'}`}>
-                            {totalValue.toLocaleString()}
-                          </td>
-                          <td className={`whitespace-nowrap px-1 py-0.5 ${isTableCompact ? 'text-[7px] w-[42px]' : 'text-[11px] w-[70px]'}`}>
-                            <div className={`font-medium text-gray-900 leading-3 truncate ${isTableCompact ? 'text-[7px]' : 'text-[11px]'}`} title={order.consignee_name}>{order.consignee_name}</div>
-                            <div className={`text-gray-500 mt-0.5 leading-3 truncate ${isTableCompact ? 'text-[6px]' : 'text-[9px]'}`} title={order.kana}>{order.kana}</div>
-                          </td>
-                          <td className={`whitespace-nowrap px-1 py-0.5 text-gray-600 ${isTableCompact ? 'text-[7px] w-[36px]' : 'text-[11px] w-[60px]'}`}>{order.post_code}</td>
-                          <td className={`whitespace-nowrap px-1 py-0.5 text-gray-600 truncate ${isTableCompact ? 'text-[7px] w-[48px]' : 'text-[11px] w-[80px]'}`} title={order.address}>{order.address}</td>
-                          <td className={`whitespace-nowrap px-1 py-0.5 text-gray-600 ${isTableCompact ? 'text-[7px] w-[48px]' : 'text-[11px] w-[80px]'}`}>{order.phone_number}</td>
-                          <td className={`whitespace-nowrap px-1 py-0.5 font-medium text-gray-900 ${isTableCompact ? 'text-[7px] w-[36px]' : 'text-[11px] w-[60px]'}`}>{order.unit_value?.toLocaleString()}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
               </div>
             </div>
           </div>
-
-          <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
-            <div className="flex flex-1 justify-between sm:hidden">
-              <button
-                onClick={() => handlePageChange(page - 1)}
-                disabled={page === 1}
-                className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                이전
-              </button>
-              <button
-                onClick={() => handlePageChange(page + 1)}
-                disabled={page === totalPages}
-                className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                다음
-              </button>
-            </div>
-            <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-gray-700">
-                  전체 <span className="font-medium">{total}</span> 건 중{' '}
-                  <span className="font-medium">{(page - 1) * pageSize + 1}</span> -{' '}
-                  <span className="font-medium">{Math.min(page * pageSize, total)}</span> 건
-                </p>
-              </div>
-              <div>
-                <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                  <button
-                    onClick={() => handlePageChange(page - 1)}
-                    disabled={page === 1}
-                    className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
-                  >
-                    <span className="sr-only">이전</span>
-                    <FaChevronLeft className="h-5 w-5" aria-hidden="true" />
-                  </button>
-                  <button
-                    onClick={() => handlePageChange(page + 1)}
-                    disabled={page === totalPages}
-                    className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
-                  >
-                    <span className="sr-only">다음</span>
-                    <FaChevronRight className="h-5 w-5" aria-hidden="true" />
-                  </button>
-                </nav>
-              </div>
-            </div>
-          </div>
-        </>
+        </div>
       )}
     </div>
   )
