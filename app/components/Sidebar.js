@@ -12,6 +12,7 @@ const menuItems = [
     icon: FaShoppingCart,
     items: [
       { name: '주문 목록', href: '/orders/list' },
+      { name: '출하 처리', href: '/orders/shipping' },
     ],
   },
   {

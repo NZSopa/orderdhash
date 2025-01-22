@@ -4,7 +4,16 @@ import path from 'path'
 let db = null
 
 export function getDB() {
-  if (db) return db
+  if (db) {
+    try {
+      // 연결 상태 확인을 위한 간단한 쿼리 실행
+      db.prepare('SELECT 1').get()
+      return db
+    } catch (error) {
+      // 연결이 끊어진 경우 db 객체 초기화
+      db = null
+    }
+  }
   
   try {
     const dbPath = path.join(process.cwd(), 'data', 'orderdash.db')
@@ -40,6 +49,7 @@ function createTables(db) {
       image_url TEXT,
       description TEXT,
       barcode TEXT,
+      shipping_from TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       CHECK (product_code <> '')
@@ -81,8 +91,23 @@ function createTables(db) {
 
 export function closeDB() {
   if (db) {
-    db.close()
-    db = null
+    try {
+      db.close()
+    } catch (error) {
+      console.error('Error closing database:', error)
+    } finally {
+      db = null
+    }
+  }
+}
+
+// 데이터베이스 작업을 위한 헬퍼 함수
+export async function withDB(operation) {
+  const db = getDB()
+  try {
+    return await operation(db)
+  } finally {
+    // 연결을 닫지 않고 재사용
   }
 }
 

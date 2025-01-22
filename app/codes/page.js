@@ -6,12 +6,15 @@ import * as XLSX from 'xlsx'
 
 const EXCEL_TEMPLATE = [
   {
+    '판매 코드': '',
+    '상품명': '',
+    '세트 수량': '',
     '제품 코드': '',
-    '제품명': '',
-    '브랜드': '',
-    '공급사': '',
-    '이미지 URL': '',
-    '설명': ''
+    '판매가': '',
+    '중량(g)': '',
+    '판매 사이트': '',
+    '상품 URL': '',
+    '배송국가': 'nz',
   }
 ]
 
@@ -37,7 +40,8 @@ export default function CodesPage() {
     brand: '',
     supplier: '',
     image_url: '',
-    description: ''
+    description: '',
+    shipping_country: 'nz'
   })
   const [isUploading, setIsUploading] = useState(false)
 
@@ -118,7 +122,8 @@ export default function CodesPage() {
       brand: code.brand || '',
       supplier: code.supplier || '',
       image_url: code.image_url || '',
-      description: code.description || ''
+      description: code.description || '',
+      shipping_country: code.shipping_country || 'nz'
     })
     setIsModalOpen(true)
   }
@@ -128,7 +133,7 @@ export default function CodesPage() {
 
     try {
       const response = await fetch(
-        `/api/codes?product_code=${encodeURIComponent(code.product_code)}`,
+        `/api/codes?sales_code=${encodeURIComponent(code.sales_code)}`,
         { method: 'DELETE' }
       )
       const data = await response.json()
@@ -186,10 +191,12 @@ export default function CodesPage() {
             brand: row['브랜드']?.toString() || '',
             supplier: row['공급사']?.toString() || '',
             image_url: row['이미지 URL']?.toString() || '',
-            description: row['설명']?.toString() || ''
+            description: row['설명']?.toString() || '',
+            shipping_country: row['배송국가']?.toString()?.toLowerCase() || 'nz'
           })).filter(code => 
             code.product_code && 
-            code.product_name
+            code.product_name &&
+            (!code.shipping_country || code.shipping_country === 'aus' || code.shipping_country === 'nz')
           )
 
           if (codes.length === 0) {
@@ -247,7 +254,8 @@ export default function CodesPage() {
       brand: '',
       supplier: '',
       image_url: '',
-      description: ''
+      description: '',
+      shipping_country: 'nz'
     })
   }
 
@@ -401,6 +409,7 @@ export default function CodesPage() {
                 {renderSortableHeader('sales_price', '판매가')}
                 {renderSortableHeader('weight', '중량(kg)')}
                 {renderSortableHeader('sales_site', '판매 사이트')}
+                {renderSortableHeader('shipping_country', '배송국가')}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   상품 URL
                 </th>
@@ -441,6 +450,9 @@ export default function CodesPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {code.sales_site || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {code.shipping_country ? code.shipping_country.toUpperCase() : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {code.site_url ? (
@@ -503,7 +515,7 @@ export default function CodesPage() {
       {/* 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl transform transition-all">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden transform transition-all">
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
               <h2 className="text-xl font-bold text-gray-900">
                 {editingCode ? '출품 정보 수정' : '출품 정보 추가'}
@@ -521,117 +533,196 @@ export default function CodesPage() {
                 </svg>
               </button>
             </div>
-            <form onSubmit={handleSubmit}>
-              <div className="p-6 grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    판매 코드
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    value={formData.sales_code}
-                    onChange={(e) =>
-                      setFormData({ ...formData, sales_code: e.target.value })
-                    }
-                    required
-                  />
+            <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[calc(90vh-120px)]">
+              <div className="p-6 grid grid-cols-2 gap-x-8 gap-y-6">
+                {/* 왼쪽 섹션 */}
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">기본 정보</h3>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      판매 코드 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.sales_code}
+                      onChange={(e) =>
+                        setFormData({ ...formData, sales_code: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      상품명 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.product_name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, product_name: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      제품 코드
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.product_code}
+                      onChange={(e) =>
+                        setFormData({ ...formData, product_code: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      세트 수량
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.set_qty}
+                      onChange={(e) =>
+                        setFormData({ ...formData, set_qty: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      판매가
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.sales_price}
+                      onChange={(e) =>
+                        setFormData({ ...formData, sales_price: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      중량(kg)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.weight}
+                      onChange={(e) =>
+                        setFormData({ ...formData, weight: e.target.value })
+                      }
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    상품명
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    value={formData.product_name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, product_name: e.target.value })
-                    }
-                    required
-                  />
+
+                {/* 오른쪽 섹션 */}
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">판매 정보</h3>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      판매 사이트
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.sales_site}
+                      onChange={(e) =>
+                        setFormData({ ...formData, sales_site: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      상품 URL
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.site_url}
+                      onChange={(e) =>
+                        setFormData({ ...formData, site_url: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      배송국가
+                    </label>
+                    <select
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.shipping_country}
+                      onChange={(e) =>
+                        setFormData({ ...formData, shipping_country: e.target.value })
+                      }
+                    >
+                      <option value="">선택</option>
+                      <option value="aus">AUS</option>
+                      <option value="nz">NZ</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      브랜드
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.brand}
+                      onChange={(e) =>
+                        setFormData({ ...formData, brand: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      공급사
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.supplier}
+                      onChange={(e) =>
+                        setFormData({ ...formData, supplier: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      이미지 URL
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.image_url}
+                      onChange={(e) =>
+                        setFormData({ ...formData, image_url: e.target.value })
+                      }
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    세트 수량
-                  </label>
-                  <input
-                    type="number"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    value={formData.set_qty}
-                    onChange={(e) =>
-                      setFormData({ ...formData, set_qty: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    제품 코드
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    value={formData.product_code}
-                    onChange={(e) =>
-                      setFormData({ ...formData, product_code: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    판매가
-                  </label>
-                  <input
-                    type="number"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    value={formData.sales_price}
-                    onChange={(e) =>
-                      setFormData({ ...formData, sales_price: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    중량(kg)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.001"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    value={formData.weight}
-                    onChange={(e) =>
-                      setFormData({ ...formData, weight: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    판매 사이트
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    value={formData.sales_site}
-                    onChange={(e) =>
-                      setFormData({ ...formData, sales_site: e.target.value })
-                    }
-                  />
-                </div>
+
+                {/* 설명 필드 - 전체 너비 사용 */}
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    상품 URL
+                    설명
                   </label>
-                  <input
-                    type="text"
+                  <textarea
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    value={formData.site_url}
+                    rows="4"
+                    value={formData.description}
                     onChange={(e) =>
-                      setFormData({ ...formData, site_url: e.target.value })
+                      setFormData({ ...formData, description: e.target.value })
                     }
                   />
                 </div>
               </div>
-              <div className="px-6 py-4 bg-gray-50 rounded-b-xl border-t border-gray-200 flex justify-end gap-3">
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
                 <button
                   type="button"
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"

@@ -219,6 +219,16 @@ async function runMigrations() {
       )
     `)
 
+    // Add shipping_country to sales_listings table
+    try {
+      db.prepare('ALTER TABLE sales_listings ADD COLUMN shipping_country TEXT CHECK(shipping_country IN ("aus", "nz"))').run()
+    } catch (error) {
+      // 칼럼이 이미 존재하는 경우 무시
+      if (!error.message.includes('duplicate column name')) {
+        throw error
+      }
+    }
+
     return { success: true }
   } catch (error) {
     console.error('Error running migrations:', error)

@@ -15,11 +15,24 @@ const EXCEL_TEMPLATE = [
     '제품명': '',
     '브랜드': '',
     '구입처': '',
+    '출고지': '',
     '이미지 URL': '',
     '설명': '',
     '바코드': ''
   }
 ]
+
+// formData 초기 상태 수정
+const initialFormData = {
+  product_code: '',
+  product_name: '',
+  brand: '',
+  supplier: '',
+  shipping_from: '',
+  image_url: '',
+  description: '',
+  barcode: ''
+}
 
 export default function ProductCodesPage() {
   const [productCodes, setProductCodes] = useState([])
@@ -27,15 +40,7 @@ export default function ProductCodesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isMultiModalOpen, setIsMultiModalOpen] = useState(false)
   const [editingCode, setEditingCode] = useState(null)
-  const [formData, setFormData] = useState({
-    product_code: '',
-    product_name: '',
-    brand: '',
-    supplier: '',
-    image_url: '',
-    description: '',
-    barcode: ''
-  })
+  const [formData, setFormData] = useState(initialFormData)
   const [multiFormData, setMultiFormData] = useState([{
     product_code: '',
     product_name: '',
@@ -43,6 +48,7 @@ export default function ProductCodesPage() {
     supplier: '',
     image_url: '',
     description: '',
+    shipping_from: '',
     barcode: ''
   }])
   const [showResultModal, setShowResultModal] = useState(false)
@@ -122,6 +128,7 @@ export default function ProductCodesPage() {
           product_name: row['제품명'] || row['product_name'] || '',
           brand: row['브랜드'] || row['brand'] || '',
           supplier: row['구입처'] || row['supplier'] || '',
+          shipping_from: row['출고지'] || row['shipping_from'] || '',
           image_url: row['이미지 URL'] || row['image_url'] || '',
           description: row['설명'] || row['description'] || '',
           barcode: row['바코드'] || row['barcode'] || ''
@@ -168,7 +175,8 @@ export default function ProductCodesPage() {
       supplier: '',
       image_url: '',
       description: '',
-      barcode: ''
+      barcode: '',
+      shipping_from: ''
     }])
   }
 
@@ -201,7 +209,8 @@ export default function ProductCodesPage() {
           supplier: '',
           image_url: '',
           description: '',
-          barcode: ''
+          barcode: '',
+          shipping_from: ''
         }])
         fetchProductCodes()
       } else {
@@ -234,15 +243,7 @@ export default function ProductCodesPage() {
       if (response.ok) {
         setIsModalOpen(false)
         setEditingCode(null)
-        setFormData({
-          product_code: '',
-          product_name: '',
-          brand: '',
-          supplier: '',
-          image_url: '',
-          description: '',
-          barcode: ''
-        })
+        setFormData(initialFormData)
         fetchProductCodes()
       } else {
         const error = await response.json()
@@ -285,7 +286,8 @@ export default function ProductCodesPage() {
       supplier: code.supplier || '',
       image_url: code.image_url || '',
       description: code.description || '',
-      barcode: code.barcode || ''
+      barcode: code.barcode || '',
+      shipping_from: code.shipping_from || ''
     })
     setIsModalOpen(true)
   }
@@ -323,15 +325,7 @@ export default function ProductCodesPage() {
           <button
             onClick={() => {
               setEditingCode(null)
-              setFormData({
-                product_code: '',
-                product_name: '',
-                brand: '',
-                supplier: '',
-                image_url: '',
-                description: '',
-                barcode: ''
-              })
+              setFormData(initialFormData)
               setIsModalOpen(true)
             }}
             className="btn bg-blue-500 hover:bg-blue-600 text-white gap-2"
@@ -374,6 +368,9 @@ export default function ProductCodesPage() {
               </th>
               <th className="w-32 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 구입처
+              </th>
+              <th className="w-32 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                출고지
               </th>
               <th className="w-36 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 바코드
@@ -422,6 +419,9 @@ export default function ProductCodesPage() {
                 </td>
                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                   {code.supplier || '-'}
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {code.shipping_from || '-'}
                 </td>
                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                   {code.barcode ? String(code.barcode).replace('.0', '') : '-'}
@@ -492,107 +492,163 @@ export default function ProductCodesPage() {
         </button>
       </div>
 
-      {/* 단일 추가/수정 모달 */}
+      {/* 수정/추가 모달 */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-semibold mb-4">
-              {editingCode ? '제품 코드 수정' : '제품 코드 추가'}
-            </h2>
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    제품 코드
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.product_code}
-                    onChange={(e) => setFormData({ ...formData, product_code: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                    disabled={editingCode}
-                  />
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden transform transition-all">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-900">
+                {editingCode ? '제품 코드 수정' : '제품 코드 추가'}
+              </h2>
+              <button
+                onClick={() => {
+                  setIsModalOpen(false)
+                  setEditingCode(null)
+                  setFormData(initialFormData)
+                }}
+                className="text-gray-400 hover:text-gray-500 transition-colors"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[calc(90vh-120px)]">
+              <div className="p-6 grid grid-cols-2 gap-x-8 gap-y-6">
+                {/* 왼쪽 섹션 - 기본 정보 */}
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">기본 정보</h3>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      제품 코드 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.product_code}
+                      onChange={(e) => setFormData({ ...formData, product_code: e.target.value })}
+                      required
+                      disabled={!!editingCode}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      제품명 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.product_name}
+                      onChange={(e) => setFormData({ ...formData, product_name: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      브랜드
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.brand}
+                      onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      바코드
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.barcode}
+                      onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    제품명
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.product_name}
-                    onChange={(e) => setFormData({ ...formData, product_name: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
+
+                {/* 오른쪽 섹션 - 추가 정보 */}
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">추가 정보</h3>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      구입처
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.supplier}
+                      onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      출고지
+                    </label>
+                    <select
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.shipping_from}
+                      onChange={(e) => setFormData({ ...formData, shipping_from: e.target.value })}
+                    >
+                      <option value="">선택</option>
+                      <option value="nz_bis">NZ BIS</option>
+                      <option value="aus_kn">AUS KN</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      이미지 URL
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.image_url}
+                      onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                    />
+                  </div>
+                  {formData.image_url && (
+                    <div className="mt-2">
+                      <img
+                        src={formData.image_url}
+                        alt="제품 이미지"
+                        className="w-full max-w-[200px] h-auto rounded-lg"
+                        onError={(e) => {
+                          e.target.src = DEFAULT_IMAGE
+                          e.target.onerror = null
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    브랜드
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.brand}
-                    onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    구입처
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.supplier}
-                    onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    이미지 URL
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.image_url}
-                    onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    바코드
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.barcode}
-                    onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+
+                {/* 설명 필드 - 전체 너비 사용 */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     설명
                   </label>
                   <textarea
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    rows="4"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows="3"
                   />
                 </div>
               </div>
-              <div className="mt-6 flex justify-end gap-3">
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                  onClick={() => {
+                    setIsModalOpen(false)
+                    setEditingCode(null)
+                    setFormData(initialFormData)
+                  }}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600"
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                 >
                   {editingCode ? '수정' : '추가'}
                 </button>
@@ -691,6 +747,20 @@ export default function ProductCodesPage() {
                           onChange={(e) => handleMultiFormChange(index, 'barcode', e.target.value)}
                           className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          출고지
+                        </label>
+                        <select
+                          value={data.shipping_from}
+                          onChange={(e) => handleMultiFormChange(index, 'shipping_from', e.target.value)}
+                          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">선택</option>
+                          <option value="nz_bis">NZ BIS</option>
+                          <option value="aus_kn">AUS KN</option>
+                        </select>
                       </div>
                       <div className="col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
