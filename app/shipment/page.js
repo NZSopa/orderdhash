@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import Pagination from '@/app/components/Pagination'
@@ -21,11 +21,7 @@ export default function ShipmentPage() {
   const status = searchParams.get('status') || ''
   const limit = 20
 
-  useEffect(() => {
-    fetchShipments()
-  }, [page, search, status])
-
-  const fetchShipments = async () => {
+  const fetchShipments = useCallback(async () => {
     try {
       setLoading(true)
       const response = await fetch(
@@ -45,7 +41,11 @@ export default function ShipmentPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [page, search, status])
+
+  useEffect(() => {
+    fetchShipments()
+  }, [fetchShipments])
 
   const handleStatusFilter = (newStatus) => {
     router.push(`/shipment?status=${newStatus}&search=${search}`)

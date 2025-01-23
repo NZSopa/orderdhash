@@ -2,59 +2,77 @@ import { NextResponse } from 'next/server'
 import { getDB, withDB } from '../../lib/db'
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url)
-  const page = parseInt(searchParams.get('page')) || 1
-  const limit = parseInt(searchParams.get('limit')) || 20
-  const search = searchParams.get('search') || ''
-  const offset = (page - 1) * limit
+  try {
+    const { searchParams } = new URL(request.url)
+    const page = parseInt(searchParams.get('page')) || 1
+    const limit = parseInt(searchParams.get('limit')) || 20
+    const search = searchParams.get('search') || ''
+    const startDate = searchParams.get('startDate')
+    const endDate = searchParams.get('endDate')
 
-  return await withDB(async (db) => {
-    try {
-      // 검색 조건 설정
-      const searchCondition = search
-        ? `AND (o.reference_no LIKE ? OR o.sku LIKE ? OR o.consignee_name LIKE ?)`
-        : ''
-      const searchParams = search
-        ? [`%${search}%`, `%${search}%`, `%${search}%`]
-        : []
+    let whereClause = 'WHERE 1=1'
+    const params = []
 
-      // 전체 주문 수 조회
-      const countStmt = db.prepare(`
-        SELECT COUNT(*) as total
-        FROM orders o
-        WHERE 1=1 ${searchCondition}
-      `)
-      const { total } = countStmt.get(...searchParams)
-
-      // 주문 목록 조회 (sales_listings와 JOIN)
-      const stmt = db.prepare(`
-        SELECT 
-          o.*,
-          sl.set_qty,
-          sl.product_name
-        FROM orders o
-        LEFT JOIN sales_listings sl ON o.sku = sl.sales_code
-        WHERE 1=1 ${searchCondition}
-        ORDER BY o.created_at DESC
-        LIMIT ? OFFSET ?
-      `)
-      
-      const orders = stmt.all(...searchParams, limit, offset)
-
-      return NextResponse.json({
-        data: orders,
-        total,
-        page,
-        limit
-      })
-    } catch (error) {
-      console.error('Error fetching orders:', error)
-      return NextResponse.json(
-        { error: '주문 목록을 불러오는 중 오류가 발생했습니다.' },
-        { status: 500 }
+    if (search) {
+      whereClause += ` AND (
+        o.reference_no LIKE ? OR 
+        o.consignee_name LIKE ? OR 
+        o.sku LIKE ? OR 
+        o.product_name LIKE ?
+      )`
+      params.push(
+        `%${search}%`,
+        `%${search}%`,
+        `%${search}%`,
+        `%${search}%`
       )
     }
-  })
+
+    if (startDate && endDate) {
+      whereClause += ` AND DATE(substr(o.created_at, 1, 10)) BETWEEN DATE(?) AND DATE(?)`
+      params.push(startDate, endDate)
+    }
+
+    const db = await getDB()
+    
+    // 전체 개수 조회
+    const countResult = db.prepare(`
+      SELECT COUNT(*) as total 
+      FROM orders o
+      ${whereClause}
+    `).get(...params)
+
+    // 데이터 조회
+    const offset = (page - 1) * limit
+    const orders = db.prepare(`
+      SELECT 
+        o.id, o.reference_no, o.sku, o.original_product_name,
+        o.quantity,  o.consignee_name, o.kana,
+        o.postal_code, o.address, o.phone_number, o.created_at,
+        o.status, o.updated_at, o.product_code, o.product_name,
+        o.sales_price, o.sales_site, o.site_url, o.shipment_location,
+        CASE 
+          WHEN o.shipment_location LIKE 'aus%' THEN i.aus_stock
+          ELSE i.nz_stock
+        END as current_stock
+      FROM orders o
+      LEFT JOIN inventory i ON o.product_code = i.product_code
+      ${whereClause}
+      ORDER BY o.created_at DESC
+      LIMIT ? OFFSET ?
+    `).all(...params, limit, offset)
+
+    return NextResponse.json({
+      data: orders,
+      total: countResult.total,
+      page,
+      limit
+    })
+
+  } catch (error) {
+    console.error('Error in orders API:', error)
+    return NextResponse.json({ error: '주문 목록을 불러오는 중 오류가 발생했습니다.' }, { status: 500 })
+  }
 }
 
 export async function POST(req) {
@@ -99,13 +117,12 @@ export async function POST(req) {
           sku,
           original_product_name,
           quantity,
-          unit_value,
           consignee_name,
           kana,
           postal_code,
           address,
           phone_number
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
       try {
@@ -116,7 +133,6 @@ export async function POST(req) {
               order.sku,
               order.original_product_name,
               order.quantity,
-              order.unit_value,
               order.consignee_name,
               order.kana,
               order.postal_code,
@@ -172,6 +188,49 @@ export async function DELETE(req) {
     console.error('Error deleting order:', error)
     return NextResponse.json(
       { error: '주문 삭제 중 오류가 발생했습니다.' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PUT(request) {
+  try {
+    const { reference_no, shipment_location } = await request.json()
+    
+    if (!reference_no || !shipment_location) {
+      return NextResponse.json(
+        { error: '주문번호와 출고지 정보가 필요합니다.' },
+        { status: 400 }
+      )
+    }
+
+    const db = await getDB()
+    
+    // 주문 정보 업데이트
+    const result = db.prepare(`
+      UPDATE orders 
+      SET 
+        shipment_location = ?,
+        updated_at = datetime('now')
+      WHERE reference_no = ?
+    `).run(shipment_location, reference_no)
+
+    if (result.changes === 0) {
+      return NextResponse.json(
+        { error: '해당 주문을 찾을 수 없습니다.' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: '출고지가 성공적으로 수정되었습니다.'
+    })
+
+  } catch (error) {
+    console.error('Error updating order:', error)
+    return NextResponse.json(
+      { error: '주문 정보 수정 중 오류가 발생했습니다.' },
       { status: 500 }
     )
   }

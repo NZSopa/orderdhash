@@ -1,31 +1,41 @@
 import { NextResponse } from 'next/server'
-import { getDB } from '@/app/lib/db'
+import { withDB } from '@/app/lib/db'
 
-export async function GET() {
-  const db = getDB()
-  try {
-    // 테이블 존재 여부 확인
-    const tableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='inventory'").get()
-    
-    if (!tableExists) {
-      return NextResponse.json({ exists: false })
+export async function GET(request) {
+  return await withDB(async (db) => {
+    try {
+      const { searchParams } = new URL(request.url)
+      const productCode = searchParams.get('product_code')
+      const location = searchParams.get('location')
+
+      if (!productCode || !location) {
+        return NextResponse.json(
+          { error: '제품 코드와 위치 정보가 필요합니다.' },
+          { status: 400 }
+        )
+      }
+
+      // 위치에 따른 재고 필드 결정
+      const stockField = location.toLowerCase().startsWith('aus') ? 'aus_stock' : 'nz_stock'
+
+      // 재고 조회
+      const inventory = db.prepare(`
+        SELECT ${stockField} as current_stock
+        FROM inventory
+        WHERE product_code = ?
+      `).get(productCode)
+
+      return NextResponse.json({
+        productCode,
+        location,
+        currentStock: inventory ? inventory.current_stock : 0
+      })
+    } catch (error) {
+      console.error('Error checking inventory:', error)
+      return NextResponse.json(
+        { error: '재고 확인 중 오류가 발생했습니다.' },
+        { status: 500 }
+      )
     }
-
-    // 테이블 구조 확인
-    const schema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='inventory'").get()
-    
-    // 테이블의 실제 컬럼 정보 확인
-    const columns = db.prepare("PRAGMA table_info(inventory)").all()
-
-    return NextResponse.json({
-      exists: true,
-      schema,
-      columns
-    })
-  } catch (error) {
-    console.error('Error checking inventory table:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  } finally {
-    db.close()
-  }
+  })
 } 

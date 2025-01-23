@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { FaSearch, FaFileExcel, FaDownload, FaPlus } from 'react-icons/fa'
 
 export default function ShippingPage() {
@@ -25,11 +25,7 @@ export default function ShippingPage() {
     weight: 0
   })
 
-  useEffect(() => {
-    loadShippingList()
-  }, [searchQuery, currentPage, itemsPerPage])
-
-  const loadShippingList = async () => {
+  const loadShippingList = useCallback(async () => {
     try {
       const queryParams = new URLSearchParams({
         page: currentPage,
@@ -37,7 +33,7 @@ export default function ShippingPage() {
         ...(searchQuery && { query: searchQuery })
       })
 
-      const response = await fetch(`/api/shipping?${queryParams}`)
+      const response = await fetch(`/api/shipment?${queryParams}`)
       const data = await response.json()
       
       if (response.ok) {
@@ -47,7 +43,11 @@ export default function ShippingPage() {
     } catch (error) {
       console.error('Error loading shipping list:', error)
     }
-  }
+  }, [searchQuery, currentPage, itemsPerPage])
+
+  useEffect(() => {
+    loadShippingList()
+  }, [loadShippingList])
 
   const handleSearch = (e) => {
     setSearchQuery(e.target.value)
@@ -58,7 +58,7 @@ export default function ShippingPage() {
     e.preventDefault()
 
     try {
-      const response = await fetch('/api/shipping', {
+      const response = await fetch('/api/shipment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

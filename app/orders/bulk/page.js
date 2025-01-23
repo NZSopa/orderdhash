@@ -1,7 +1,7 @@
 'use client'
 
 import { FaFileUpload } from 'react-icons/fa'
-import FileUpload from '../../components/orders/FileUpload'
+import FileUpload from '@/app/components/orders/FileUpload'
 
 export default function OrderBulkPage() {
   return (

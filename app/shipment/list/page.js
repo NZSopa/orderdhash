@@ -13,6 +13,7 @@ export default function ShipmentListPage() {
   const [editingId, setEditingId] = useState(null)
   const [editingField, setEditingField] = useState(null)
   const [editValue, setEditValue] = useState('')
+  const [selectedShipments, setSelectedShipments] = useState([])
   
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -103,19 +104,85 @@ export default function ShipmentListPage() {
     }
   }
 
+  // 전체 선택 처리
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedShipments(shipments.map(s => s.id))
+    } else {
+      setSelectedShipments([])
+    }
+  }
+
+  // 개별 선택 처리
+  const handleSelect = (id) => {
+    setSelectedShipments(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(i => i !== id)
+      } else {
+        return [...prev, id]
+      }
+    })
+  }
+
+  // 출하 취소 처리
+  const handleCancelShipments = async () => {
+    if (!selectedShipments.length) {
+      toast.error('취소할 출하를 선택해주세요.')
+      return
+    }
+
+    if (!confirm('선택한 출하를 취소하시겠습니까?')) {
+      return
+    }
+
+    try {
+      const response = await fetch('/api/shipment/cancel', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          shipmentIds: selectedShipments
+        })
+      })
+
+      const result = await response.json()
+      
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+
+      toast.success('출하가 취소되었습니다.')
+      setSelectedShipments([])
+      fetchShipments()
+    } catch (error) {
+      console.error('Error canceling shipments:', error)
+      toast.error('출하 취소 중 오류가 발생했습니다.')
+    }
+  }
+
   return (
     <div className="container mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">출하 목록</h1>
         <div className="flex gap-4 items-center">
+          {selectedShipments.length > 0 && (
+            <button
+              onClick={handleCancelShipments}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            >
+              출하 취소
+            </button>
+          )}
           <select
             value={location}
             onChange={(e) => handleLocationChange(e.target.value)}
             className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">전체</option>
-            <option value="aus">AUS</option>
-            <option value="nz">NZ</option>
+            <option value="aus_kn">AUS KN</option>
+            <option value="nz_bis">NZ BIS</option>
           </select>
           <select
             value={limit}
@@ -138,6 +205,14 @@ export default function ShipmentListPage() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              <th className="w-[50px] px-3 py-3">
+                <input
+                  type="checkbox"
+                  checked={selectedShipments.length === shipments.length && shipments.length > 0}
+                  onChange={handleSelectAll}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+              </th>
               <th className="w-[150px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 출하번호
               </th>
@@ -146,6 +221,18 @@ export default function ShipmentListPage() {
               </th>
               <th className="w-[120px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 상품코드
+              </th>
+              <th className="w-[250px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                상품명
+              </th>
+              <th className="w-[100px] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                주문수량
+              </th>
+              <th className="w-[120px] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                단가
+              </th>
+              <th className="w-[120px] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                총 금액
               </th>
               <th className="w-[120px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 출하위치
@@ -161,6 +248,14 @@ export default function ShipmentListPage() {
           <tbody className="bg-white divide-y divide-gray-200">
             {shipments.map((shipment) => (
               <tr key={shipment.id} className="hover:bg-gray-50">
+                <td className="px-3 py-4 whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={selectedShipments.includes(shipment.id)}
+                    onChange={() => handleSelect(shipment.id)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm">
                   {editingId === shipment.id && editingField === 'shipment_no' ? (
                     <div className="flex items-center gap-2">
@@ -193,9 +288,21 @@ export default function ShipmentListPage() {
                   )}
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm">{shipment.reference_no}</td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm">{shipment.sku}</td>
+                <td className="px-3 py-4 whitespace-nowrap text-sm">{shipment.product_code}</td>
+                <td className="px-3 py-4 text-sm">
+                  <div className="line-clamp-2">{shipment.product_name}</div>
+                </td>
+                <td className="px-3 py-4 whitespace-nowrap text-sm text-right">
+                  {(shipment.quantity || 0).toLocaleString()}
+                </td>
+                <td className="px-3 py-4 whitespace-nowrap text-sm text-right">
+                  {(shipment.unit_value || 0).toLocaleString()}円
+                </td>
+                <td className="px-3 py-4 whitespace-nowrap text-sm text-right">
+                  {((shipment.unit_value || 0) * (shipment.quantity || 0)).toLocaleString()}円
+                </td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm">
-                  {shipment.shipment_location === 'aus' ? 'AUS' : 'NZ'}
+                  {shipment.shipment_location}
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm">
                   {editingId === shipment.id && editingField === 'status' ? (

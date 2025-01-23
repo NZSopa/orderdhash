@@ -49,18 +49,42 @@ export async function processOrders(files, orderType, db) {
           message: '이미 등록된 주문번호입니다.'
         })
       } else {
+        // sales_listings에서 추가 정보 조회
+        const salesInfo = db.prepare(`
+          SELECT product_code, set_qty, sales_price, sales_site, site_url
+          FROM sales_listings
+          WHERE sales_code = ?
+        `).get(order['sku'])
+
+        // product_master에서 추가 정보 조회
+        let productInfo = null
+        if (salesInfo) {
+          productInfo = db.prepare(`
+            SELECT product_name, shipping_from
+            FROM product_master
+            WHERE product_code = ?
+          `).get(salesInfo.product_code)
+        }
+
         validOrders.push({
           reference_no: order['reference No.'],
           sku: order['sku'],
           original_product_name: order['originalProductName'],
           quantity: parseInt(order['quantity-purchased']) || 1,
-          unit_value: parseFloat(order['unit value']) || 0,
           consignee_name: order['Consignees NAME'],
           kana: order['Kana'],
           postal_code: order['postal_code'] || '',
           address: order['Consignees Address'],
           phone_number: order['ConsigneesPhonenumber'],
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          // 추가 정보
+          product_code: salesInfo?.product_code || null,
+          product_name: productInfo?.product_name || null,
+          sales_price: salesInfo?.sales_price || null,
+          sales_site: salesInfo?.sales_site || null,
+          site_url: salesInfo?.site_url || null,
+          shipment_location: productInfo?.shipping_from || null,
+          set_qty: salesInfo?.set_qty || null
         })
       }
     }
@@ -70,22 +94,22 @@ export async function processOrders(files, orderType, db) {
       const stmt = db.prepare(`
         INSERT INTO orders (
           reference_no, sku, original_product_name,
-          quantity, unit_value, consignee_name, kana,
-          postal_code, address, phone_number, created_at
+          quantity, consignee_name, kana,
+          postal_code, address, phone_number, created_at,
+          product_code, product_name, sales_price, sales_site,
+          site_url, shipment_location, set_qty
         ) VALUES (
           @reference_no, @sku, @original_product_name,
-          @quantity, @unit_value, @consignee_name, @kana,
-          @postal_code, @address, @phone_number, @created_at
+          @quantity, @consignee_name, @kana,
+          @postal_code, @address, @phone_number, @created_at,
+          @product_code, @product_name, @sales_price, @sales_site,
+          @site_url, @shipment_location, @set_qty
         )
       `)
 
       const insertMany = db.transaction((orders) => {
         for (const order of orders) {
-          const orderData = {
-            ...order,
-            original_product_name: order.original_product_name || ''
-          }
-          stmt.run(orderData)
+          stmt.run(order)
         }
       })
 

@@ -79,8 +79,8 @@ export async function POST(request) {
 
         try {
           const result = db.prepare(`
-            UPDATE product_codes 
-            SET sales_price = ?, 
+            UPDATE sales_listings 
+            SET sales_code = ?, 
                 updated_at = CURRENT_TIMESTAMP 
             WHERE sales_code = ?
           `).run(finalPrice, salesCode)

@@ -14,17 +14,18 @@ async function checkInventory(db, productCode, location) {
   return inventory ? inventory.quantity : 0
 }
 
-// 중복 주문 확인 함수
-async function checkDuplicateOrder(db, referenceNo) {
+// 중복 주문 확인 함수 - 단순 체크만 수행
+function isDuplicateOrder(db, referenceNo, sku) {
   const existing = db.prepare(`
-    SELECT id FROM shipment WHERE order_id = ?
-  `).get(referenceNo)
+    SELECT id FROM shipment 
+    WHERE reference_no = ? AND sku = ?
+  `).get(referenceNo, sku)
   
   return !!existing
 }
 
 // 수취인 중복 확인 함수
-async function checkDuplicateConsignee(db, consigneeName) {
+function checkDuplicateConsignee(db, consigneeName) {
   const duplicates = db.prepare(`
     SELECT order_id 
     FROM shipment 
@@ -45,47 +46,47 @@ export async function GET(request) {
       const location = searchParams.get('location') || 'all'
       const offset = (page - 1) * limit
 
-      // 검색 및 위치 조건
-      let conditions = []
-      let params = []
+      // 검색 조건 설정
+      let whereClause = ''
+      const params = []
 
       if (search) {
-        conditions.push('(shipment_no LIKE ? OR reference_no LIKE ? OR sku LIKE ?)')
-        params.push(`%${search}%`, `%${search}%`, `%${search}%`)
+        whereClause = `
+          AND (s.shipment_no LIKE ? OR s.reference_no LIKE ? OR 
+               s.product_name LIKE ? OR s.consignee_name LIKE ?)
+        `
+        params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`)
       }
 
       if (location !== 'all') {
-        conditions.push('shipment_location = ?')
+        whereClause += ` AND s.shipment_location = ?`
         params.push(location)
       }
 
-      const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''
-
-      // 전체 개수 조회
-      const countQuery = db.prepare(`
-        SELECT COUNT(*) as count 
-        FROM shipment 
-        ${whereClause}
+      // 전체 건수 조회
+      const countStmt = db.prepare(`
+        SELECT COUNT(*) as total
+        FROM shipment s
+        WHERE 1=1 ${whereClause}
       `)
-      
-      const { count } = countQuery.get(...params)
+      const { total } = countStmt.get(...params)
 
-      // 데이터 조회
-      const query = db.prepare(`
-        SELECT * 
-        FROM shipment 
-        ${whereClause}
-        ORDER BY created_at DESC
+      // 출하 목록 조회
+      const stmt = db.prepare(`
+        SELECT s.*
+        FROM shipment s
+        WHERE 1=1 ${whereClause}
+        ORDER BY s.created_at DESC
         LIMIT ? OFFSET ?
       `)
-
-      const data = query.all(...params, limit, offset)
+      
+      const shipments = stmt.all(...params, limit, offset)
 
       return NextResponse.json({
-        data,
-        total: count,
-        currentPage: page,
-        totalPages: Math.ceil(count / limit)
+        data: shipments,
+        total,
+        page,
+        limit
       })
     } catch (error) {
       console.error('Error fetching shipments:', error)
@@ -97,66 +98,100 @@ export async function GET(request) {
   })
 }
 
-export async function POST(req) {
+export async function POST(request) {
   return await withDB(async (db) => {
     try {
-      const orders = await req.json()
-      const results = []
+      const orders = await request.json()
 
-      for (const order of orders) {
-        // sales_listings와 product_master에서 제품 정보 조회
-        const product = db.prepare(`
-          SELECT 
-            sl.product_code,
-            sl.set_qty,
-            sl.shipping_country,
-            pm.shipping_from
-          FROM sales_listings sl
-          LEFT JOIN product_master pm ON sl.product_code = pm.product_code
-          WHERE sl.sales_code = ?
-        `).get(order.sku)
+      // 트랜잭션 시작
+      db.prepare('BEGIN TRANSACTION').run()
 
-        if (!product) {
-          throw new Error(`상품 코드 ${order.sku}에 대한 정보를 찾을 수 없습니다.`)
-        }
+      try {
+        const stmt = db.prepare(`
+          INSERT INTO shipment (
+            shipment_location,
+            reference_no,
+            status,
+            sku,
+            product_code,
+            product_name,
+            quantity,
+            unit_value,
+            consignee_name,
+            kana,
+            postal_code,
+            address
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `)
 
-        if (!product.shipping_from) {
-          throw new Error(`상품 코드 ${order.sku}의 출하 위치 정보가 없습니다.`)
-        }
+        const insertMany = db.transaction((orders) => {
+          for (const order of orders) {
+            // 제품 정보 조회
+            const product = db.prepare(`
+              SELECT 
+                sl.product_code,
+                sl.set_qty,
+                pm.shipping_from
+              FROM sales_listings sl
+              LEFT JOIN product_master pm ON sl.product_code = pm.product_code
+              WHERE sl.sales_code = ?
+            `).get(order.sku)
 
-        // 재고 확인
-        const stock = await checkInventory(db, product.product_code, product.shipping_from)
-        const orderQuantity = order.quantity * product.set_qty // 실제 주문 수량 (세트 수량 * 주문 수량)
-        const isLowInventory = stock < orderQuantity
+            // 출하번호 생성
+            const date = new Date()
+            const year = date.getFullYear()
+            const month = String(date.getMonth() + 1).padStart(2, '0')
+            const day = String(date.getDate()).padStart(2, '0')
+            const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
+            // const shipmentNo = `SH${year}${month}${day}${random}`
 
-        // 수취인 중복 확인
-        const hasDuplicateConsignee = await checkDuplicateConsignee(db, order.consignee_name)
-        
-        // 금액 체크
-        const totalAmount = order.quantity * order.unit_value
-        const needsPriceCheck = totalAmount >= 16500
-
-        results.push({
-          order,
-          needs_human_check: isLowInventory || hasDuplicateConsignee || needsPriceCheck,
-          shipping_from: product.shipping_from,
-          current_stock: stock,
-          required_stock: orderQuantity,
-          set_qty: product.set_qty,
-          total_quantity: orderQuantity,
-          reason: {
-            low_inventory: isLowInventory,
-            duplicate_consignee: hasDuplicateConsignee,
-            high_price: needsPriceCheck
+            stmt.run([
+              product?.shipping_from || order.shipping_from || 'n/a',
+              order.reference_no,
+              'processing',
+              order.sku,
+              product?.product_code || '',
+              order.product_name,
+              order.quantity,
+              order.unit_value,
+              order.consignee_name,
+              order.kana,
+              order.postal_code,
+              order.address
+            ])
           }
         })
-      }
 
-      return NextResponse.json({ results })
+        insertMany(orders)
+
+        // 주문 상태 업데이트
+        const updateOrdersStmt = db.prepare(`
+          UPDATE orders 
+          SET status = CASE 
+            WHEN status IS NULL OR status = '' THEN 'sh'
+            ELSE status || 'sh'
+          END,
+          updated_at = datetime('now')
+          WHERE reference_no IN (${orders.map(() => '?').join(',')})
+        `)
+        updateOrdersStmt.run(orders.map(order => order.reference_no))
+
+        // 트랜잭션 커밋
+        db.prepare('COMMIT').run()
+
+        return NextResponse.json({ 
+          success: true,
+          message: `${orders.length}건의 출하가 등록되었습니다.`
+        })
+      } catch (error) {
+        // 오류 발생 시 롤백
+        db.prepare('ROLLBACK').run()
+        throw error
+      }
     } catch (error) {
-      console.error('Error processing shipment:', error)
+      console.error('Error creating shipments:', error)
       return NextResponse.json(
-        { error: error.message || '출하 처리 중 오류가 발생했습니다.' },
+        { error: '출하 등록 중 오류가 발생했습니다.' },
         { status: 500 }
       )
     }
