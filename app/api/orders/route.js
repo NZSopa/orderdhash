@@ -1,77 +1,60 @@
 import { NextResponse } from 'next/server'
-import { getDB } from '../../lib/db'
+import { getDB, withDB } from '../../lib/db'
 
 export async function GET(request) {
-  let db = null
-  try {
-    db = getDB()
-    const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page')) || 1
-    const limit = parseInt(searchParams.get('limit')) || 20
-    const search = searchParams.get('search') || ''
-    const date = searchParams.get('date')
-    const offset = (page - 1) * limit
+  const { searchParams } = new URL(request.url)
+  const page = parseInt(searchParams.get('page')) || 1
+  const limit = parseInt(searchParams.get('limit')) || 20
+  const search = searchParams.get('search') || ''
+  const offset = (page - 1) * limit
 
-    const searchPattern = `%${search}%`
-    const baseParams = [
-      searchPattern, // reference_no
-      searchPattern, // sku
-      searchPattern, // consignee_name
-      searchPattern, // postal_code
-      searchPattern, // address
-      searchPattern  // phone_number
-    ]
+  return await withDB(async (db) => {
+    try {
+      // 검색 조건 설정
+      const searchCondition = search
+        ? `AND (o.reference_no LIKE ? OR o.sku LIKE ? OR o.consignee_name LIKE ?)`
+        : ''
+      const searchParams = search
+        ? [`%${search}%`, `%${search}%`, `%${search}%`]
+        : []
 
-    let params = [...baseParams]
-    let dateCondition = ''
-    
-    if (date) {
-      dateCondition = "AND DATE(o.created_at) = DATE(?)"
-      params.push(date)
-    }
+      // 전체 주문 수 조회
+      const countStmt = db.prepare(`
+        SELECT COUNT(*) as total
+        FROM orders o
+        WHERE 1=1 ${searchCondition}
+      `)
+      const { total } = countStmt.get(...searchParams)
 
-    // WITH 절을 사용하여 한 번의 쿼리로 처리
-    const stmt = db.prepare(`
-      WITH PagedData AS (
+      // 주문 목록 조회 (sales_listings와 JOIN)
+      const stmt = db.prepare(`
         SELECT 
           o.*,
-          sl.product_code,
-          sl.product_name,
-          sl.sales_price,
-          COUNT(*) OVER() as total_count
+          sl.set_qty,
+          sl.product_name
         FROM orders o
         LEFT JOIN sales_listings sl ON o.sku = sl.sales_code
-        WHERE (
-          o.reference_no LIKE ? OR
-          o.sku LIKE ? OR
-          o.consignee_name LIKE ? OR
-          o.postal_code LIKE ? OR
-          o.address LIKE ? OR
-          o.phone_number LIKE ?
-        )
-        ${dateCondition}
+        WHERE 1=1 ${searchCondition}
         ORDER BY o.created_at DESC
         LIMIT ? OFFSET ?
+      `)
+      
+      const orders = stmt.all(...searchParams, limit, offset)
+
+      return NextResponse.json({
+        data: orders,
+        total,
+        page,
+        limit
+      })
+    } catch (error) {
+      console.error('Error fetching orders:', error)
+      return NextResponse.json(
+        { error: '주문 목록을 불러오는 중 오류가 발생했습니다.' },
+        { status: 500 }
       )
-      SELECT * FROM PagedData
-    `)
-
-    const orders = stmt.all(...params, limit, offset)
-    const total = orders.length > 0 ? orders[0].total_count : 0
-
-    return NextResponse.json({
-      data: orders.map(({ total_count, ...order }) => order),
-      total,
-      page,
-      totalPages: Math.ceil(total / limit)
-    })
-  } catch (error) {
-    console.error('Error fetching orders:', error)
-    return NextResponse.json(
-      { error: '주문 목록을 불러오는 중 오류가 발생했습니다.' },
-      { status: 500 }
-    )
-  }
+    }
+  })
 }
 
 export async function POST(req) {

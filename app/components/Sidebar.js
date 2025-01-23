@@ -12,7 +12,7 @@ const menuItems = [
     icon: FaShoppingCart,
     items: [
       { name: '주문 목록', href: '/orders/list' },
-      { name: '출하 처리', href: '/orders/shipping' },
+      { name: '출하 목록', href: '/shipment/list' },
     ],
   },
   {
@@ -48,7 +48,7 @@ const menuItems = [
       { name: '판매 가격', href: '/prices' },
       { name: '원가 관리', href: '/unit-prices' },
       { name: '재고 업로드', href: '/inventory' },
-      { name: '주문 업로드', href: '/orders' },
+      { name: '주문 업로드', href: '/orders/bulk' },
     ],
   },
 ]

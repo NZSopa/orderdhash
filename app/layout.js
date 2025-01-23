@@ -1,4 +1,5 @@
 import { Inter } from 'next/font/google'
+import { Toaster } from 'react-hot-toast'
 import './globals.css'
 import Sidebar from './components/Sidebar'
 import { FaBars } from 'react-icons/fa'
@@ -29,6 +30,7 @@ export default function RootLayout({ children }) {
           </div>
           <Sidebar />
         </div>
+        <Toaster position="top-right" />
       </body>
     </html>
   )
