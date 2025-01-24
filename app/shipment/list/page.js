@@ -213,6 +213,9 @@ export default function ShipmentListPage() {
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
               </th>
+              <th className="w-[120px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                출하위치
+              </th>
               <th className="w-[150px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 출하번호
               </th>
@@ -235,9 +238,6 @@ export default function ShipmentListPage() {
                 총 금액
               </th>
               <th className="w-[120px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                출하위치
-              </th>
-              <th className="w-[120px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 상태
               </th>
               <th className="w-[150px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -255,6 +255,9 @@ export default function ShipmentListPage() {
                     onChange={() => handleSelect(shipment.id)}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
+                </td>
+                <td className="px-3 py-4 whitespace-nowrap text-sm">
+                  {shipment.shipment_location}
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm">
                   {editingId === shipment.id && editingField === 'shipment_no' ? (
@@ -302,9 +305,6 @@ export default function ShipmentListPage() {
                   {((shipment.unit_value || 0) * (shipment.quantity || 0)).toLocaleString()}円
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm">
-                  {shipment.shipment_location}
-                </td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm">
                   {editingId === shipment.id && editingField === 'status' ? (
                     <div className="flex items-center gap-2">
                       <select
@@ -344,7 +344,7 @@ export default function ShipmentListPage() {
                   )}
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm">
-                  {new Date(shipment.created_at).toLocaleString()}
+                  {shipment.shipmentment_at ? new Date(shipment.shipment_at).toLocaleString() : ''}
                 </td>
               </tr>
             ))}

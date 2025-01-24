@@ -1,121 +1,182 @@
 import { NextResponse } from 'next/server'
-import { getDB } from '@/app/lib/db'
+import { withDB } from '@/app/lib/db'
+import { read, utils } from 'xlsx'
+import iconv from 'iconv-lite'
+import { parse } from 'csv-parse/sync'
 
 export async function POST(request) {
-  const db = getDB()
-  const formData = await request.formData()
-  const file = formData.get('file')
-  const shippingFee = parseInt(formData.get('shippingFee') || '0', 10)
-
-  if (!file) {
-    return NextResponse.json(
-      { success: false, message: '파일이 없습니다.' },
-      { status: 400 }
-    )
-  }
-
-  if (isNaN(shippingFee)) {
-    return NextResponse.json(
-      { success: false, message: '유효하지 않은 배송비입니다.' },
-      { status: 400 }
-    )
-  }
-
-  try {
-    const fileContent = await file.text()
-    const lines = fileContent.split('\n')
-    
-    let totalCount = 0
-    let updatedCount = 0
-    let failedCount = 0
-
-    // 트랜잭션 시작
-    db.exec('BEGIN TRANSACTION')
-
+  return await withDB(async (db) => {
     try {
-      // 헤더 라인 건너뛰기
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim()
-        if (!line) continue // 빈 라인 건너뛰기
-        
-        totalCount++
-        const fields = line.split('\t') // 탭으로 구분된 필드
+      const formData = await request.formData()
+      const file = formData.get('file')
+      const type = formData.get('type')
+      const shippingFee = type === 'amazon' ? parseInt(formData.get('shippingFee') || '0', 10) : 0
 
-        // 필드가 충분한지 확인
-        if (!fields || fields.length < 3) { // 최소 3개 필드 필요 (SKU, ASIN, 가격)
-          console.log(`필드 수가 부족한 라인 ${i + 1}:`, line)
-          failedCount++
-          continue
-        }
-
-        const salesCode = fields[0]?.trim() // SKU는 첫 번째 필드
-        const priceStr = fields[2]?.trim() // 가격은 세 번째 필드
-
-        // 필수 필드가 없거나 빈 값인 경우 건너뛰기
-        if (!salesCode || !priceStr) {
-          console.log(`필수 필드 누락된 라인 ${i + 1}:`, line)
-          failedCount++
-          continue
-        }
-
-        // 가격에서 ¥ 기호와 쉼표 제거 후 숫자로 변환
-        let price
-        try {
-          price = parseFloat(priceStr.replace(/[¥,]/g, ''))
-        } catch (error) {
-          console.log(`가격 변환 실패한 라인 ${i + 1}:`, line)
-          failedCount++
-          continue
-        }
-
-        if (isNaN(price)) {
-          console.log(`유효하지 않은 가격 형식 라인 ${i + 1}:`, line)
-          failedCount++
-          continue
-        }
-
-        // 배송비 추가
-        const finalPrice = price + shippingFee
-
-        try {
-          const result = db.prepare(`
-            UPDATE sales_listings 
-            SET sales_code = ?, 
-                updated_at = CURRENT_TIMESTAMP 
-            WHERE sales_code = ?
-          `).run(finalPrice, salesCode)
-
-          if (result.changes > 0) {
-            updatedCount++
-          } else {
-            console.log(`매칭되는 상품 코드 없음 ${i + 1}:`, salesCode)
-            failedCount++
-          }
-        } catch (error) {
-          console.log(`DB 업데이트 실패한 라인 ${i + 1}:`, error)
-          failedCount++
-        }
+      if (!file) {
+        return NextResponse.json(
+          { success: false, message: '파일이 없습니다.' },
+          { status: 400 }
+        )
       }
 
-      // 트랜잭션 커밋
-      db.exec('COMMIT')
+      if (type === 'amazon' && isNaN(shippingFee)) {
+        return NextResponse.json(
+          { success: false, message: '유효하지 않은 배송비입니다.' },
+          { status: 400 }
+        )
+      }
 
-      return NextResponse.json({
-        success: true,
-        totalCount,
-        updatedCount,
-        failedCount,
-      })
+      let totalCount = 0
+      let updatedCount = 0
+      let failedCount = 0
+
+      // 트랜잭션 시작
+      db.prepare('BEGIN TRANSACTION').run()
+
+      try {
+        if (type === 'amazon') {
+          // 아마존 가격 파일 처리
+          const buffer = Buffer.from(await file.arrayBuffer())
+          const workbook = read(buffer)
+          const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+          const data = utils.sheet_to_json(worksheet)
+
+          for (const row of data) {
+            totalCount++
+            const salesCode = row['SKU']?.toString()
+            const priceStr = row['Price']?.toString()
+
+            if (!salesCode || !priceStr) {
+              failedCount++
+              continue
+            }
+
+            let price
+            try {
+              price = parseFloat(priceStr.replace(/[¥,]/g, ''))
+            } catch (error) {
+              failedCount++
+              continue
+            }
+
+            if (isNaN(price)) {
+              failedCount++
+              continue
+            }
+
+            const finalPrice = price + shippingFee
+
+            try {
+              const result = db.prepare(`
+                UPDATE sales_listings 
+                SET sales_price = ?, 
+                    updated_at = CURRENT_TIMESTAMP 
+                WHERE sales_code = ?
+              `).run(finalPrice, salesCode)
+
+              if (result.changes > 0) {
+                updatedCount++
+              } else {
+                failedCount++
+              }
+            } catch (error) {
+              failedCount++
+            }
+          }
+        } else if (type === 'yahoo') {
+          // Yahoo 가격 파일 처리 (Shift-JIS 인코딩 처리)
+          const buffer = await file.arrayBuffer()
+          const content = iconv.decode(Buffer.from(buffer), 'Shift_JIS')
+          
+          // csv-parse를 사용하여 CSV 파싱
+          const records = parse(content, {
+            columns: true,
+            skip_empty_lines: true,
+            trim: true,
+            bom: true,
+            relax_quotes: true,
+            relax_column_count: true
+          })
+
+          for (const record of records) {
+            totalCount++
+            
+            // code와 price 필드 추출
+            const salesCode = record.code
+            const priceStr = record.price
+
+            console.log('Processing record:', {
+              salesCode,
+              priceStr,
+              rawRecord: record
+            })
+
+            if (!salesCode || !priceStr) {
+              console.log('Skipping record - missing data:', { salesCode, priceStr })
+              failedCount++
+              continue
+            }
+
+            let price
+            try {
+              // 쉼표와 ¥ 기호 제거 후 숫자로 변환
+              price = parseInt(priceStr.replace(/[,¥]/g, ''), 10)
+              
+              if (isNaN(price)) {
+                console.log('Invalid price format:', priceStr)
+                failedCount++
+                continue
+              }
+            } catch (error) {
+              console.log('Error parsing price:', error)
+              failedCount++
+              continue
+            }
+
+            try {
+              const result = db.prepare(`
+                UPDATE sales_listings 
+                SET sales_price = ?, 
+                    updated_at = CURRENT_TIMESTAMP 
+                WHERE sales_code = ?
+              `).run(price, salesCode)
+
+              if (result.changes > 0) {
+                console.log('Successfully updated:', { salesCode, price })
+                updatedCount++
+              } else {
+                console.log('No matching record found:', { salesCode })
+                failedCount++
+              }
+            } catch (error) {
+              console.log('Database error:', error)
+              failedCount++
+            }
+          }
+        } else {
+          throw new Error('지원하지 않는 파일 형식입니다.')
+        }
+
+        // 트랜잭션 커밋
+        db.prepare('COMMIT').run()
+
+        return NextResponse.json({
+          success: true,
+          totalCount,
+          updatedCount,
+          failedCount,
+        })
+      } catch (error) {
+        // 오류 발생 시 롤백
+        db.prepare('ROLLBACK').run()
+        throw error
+      }
     } catch (error) {
-      // 오류 발생 시 롤백
-      db.exec('ROLLBACK')
-      throw error
+      console.error('Error processing file:', error)
+      return NextResponse.json(
+        { success: false, message: error.message || '파일 처리 중 오류가 발생했습니다.' },
+        { status: 500 }
+      )
     }
-  } catch (error) {
-    console.error('Error processing file:', error)
-    return NextResponse.json(
-      { success: false, message: '파일 처리 중 오류가 발생했습니다.' },
-      { status: 500 }
-    )
-  }
+  })
 } 

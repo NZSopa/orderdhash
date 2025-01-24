@@ -120,8 +120,11 @@ export async function POST(request) {
             consignee_name,
             kana,
             postal_code,
-            address
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            address,
+            sales_site,
+            sales_url,
+            phone_number
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `)
 
         const insertMany = db.transaction((orders) => {
@@ -146,18 +149,21 @@ export async function POST(request) {
             // const shipmentNo = `SH${year}${month}${day}${random}`
 
             stmt.run([
-              product?.shipping_from || order.shipping_from || 'n/a',
+              order.shipment_location,
               order.reference_no,
               'processing',
               order.sku,
-              product?.product_code || '',
+              order.product_code,
               order.product_name,
-              order.quantity,
-              order.unit_value,
+              order.quantity * order.set_qty || 1,
+              order.sales_price || 0,
               order.consignee_name,
               order.kana,
               order.postal_code,
-              order.address
+              order.address,
+              order.sales_site,
+              order.sales_url,
+              order.phone_number
             ])
           }
         })

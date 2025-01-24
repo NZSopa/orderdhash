@@ -22,6 +22,7 @@ export default function OrderListPage() {
   })
   const [highlightedOrder, setHighlightedOrder] = useState(null)
   const [editingOrder, setEditingOrder] = useState(null)
+  const [pendingOrders, setPendingOrders] = useState([])
   
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -36,6 +37,28 @@ export default function OrderListPage() {
   useEffect(() => {
     fetchOrders()
   }, [page, search, limit, startDate, endDate])
+
+  // 미출하 주문 현황 조회
+  const fetchPendingOrders = async () => {
+    try {
+      const response = await fetch('/api/orders/pending')
+      const data = await response.json()
+      
+      if (data.error) {
+        throw new Error(data.error)
+      }
+      
+      setPendingOrders(data.data)
+    } catch (error) {
+      console.error('Error fetching pending orders:', error)
+      toast.error('미출하 주문 현황을 불러오는 중 오류가 발생했습니다.')
+    }
+  }
+
+  // 초기 데이터 로딩
+  useEffect(() => {
+    fetchPendingOrders()
+  }, [])
 
   const fetchOrders = async () => {
     try {
@@ -307,6 +330,11 @@ export default function OrderListPage() {
     }
   }
 
+  // 미출하 주문 필터링
+  const handlePendingOrderClick = (date) => {
+    router.push(`/orders/list?page=1&limit=${limit}&search=&startDate=${date}&endDate=${date}`)
+  }
+
   return (
     <div className="container mx-auto">
       {/* 경고 섹션 */}
@@ -369,7 +397,29 @@ export default function OrderListPage() {
         )}
       </div>
 
-       <div className="flex justify-between items-center mb-6">
+      {/* 미출하 주문 현황 */}
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold mb-4">미출하 주문 현황</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {pendingOrders.map((item) => (
+            <div
+              key={item.date}
+              onClick={() => handlePendingOrderClick(item.date)}
+              className="bg-white p-4 rounded-lg shadow hover:shadow-md cursor-pointer transition-shadow"
+            >
+              <div className="text-sm text-gray-600">{item.date}</div>
+              <div className="mt-2 flex justify-between items-center">
+                <span className="text-lg font-semibold text-blue-600">
+                  {item.count}건
+                </span>
+                <span className="text-sm text-gray-500">미출하</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">주문 목록</h1>
         <div className="flex gap-4 items-center">
           <div className="flex items-center gap-2">

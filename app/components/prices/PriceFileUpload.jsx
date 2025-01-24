@@ -1,18 +1,16 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { toast } from 'react-hot-toast'
 import { FaFileAlt, FaUpload, FaCheckCircle, FaTimesCircle } from 'react-icons/fa'
 
-export default function PriceFileUpload() {
+export default function PriceFileUpload({ type = 'amazon', inputId }) {
+  const [isUploading, setIsUploading] = useState(false)
+  const [shippingFee, setShippingFee] = useState(0)
   const [file, setFile] = useState(null)
-  const [shippingFee, setShippingFee] = useState('')
-  const [uploading, setUploading] = useState(false)
-  const [uploadResult, setUploadResult] = useState(null)
   const [dragActive, setDragActive] = useState(false)
-  const router = useRouter()
 
-  const handleDrag = useCallback((e) => {
+  const handleDrag = (e) => {
     e.preventDefault()
     e.stopPropagation()
     if (e.type === "dragenter" || e.type === "dragover") {
@@ -20,78 +18,78 @@ export default function PriceFileUpload() {
     } else if (e.type === "dragleave") {
       setDragActive(false)
     }
-  }, [])
+  }
 
-  const handleDrop = useCallback((e) => {
+  const handleDrop = (e) => {
     e.preventDefault()
     e.stopPropagation()
     setDragActive(false)
 
     const droppedFile = e.dataTransfer.files[0]
-    if (droppedFile && droppedFile.type === 'text/plain') {
+    const fileExt = droppedFile?.name.split('.').pop().toLowerCase()
+    const validExt = type === 'amazon' ? ['xlsx', 'xls'] : ['csv']
+    
+    if (droppedFile && validExt.includes(fileExt)) {
       setFile(droppedFile)
     } else {
-      alert('TXT 파일만 업로드 가능합니다.')
-    }
-  }, [])
-
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0]
-    if (selectedFile && selectedFile.type === 'text/plain') {
-      setFile(selectedFile)
-    } else {
-      alert('TXT 파일만 업로드 가능합니다.')
-      e.target.value = null
+      toast.error(`${validExt.join(', ')} 파일만 업로드 가능합니다.`)
     }
   }
 
-  const handleShippingFeeChange = (e) => {
-    const value = e.target.value.replace(/[^0-9]/g, '')
-    setShippingFee(value)
-  }
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!file) {
-      alert('파일을 선택해주세요.')
+    // 파일 확장자 체크
+    const fileExt = file.name.split('.').pop().toLowerCase()
+    const validExt = type === 'amazon' ? ['xlsx', 'xls'] : ['csv']
+    
+    if (!validExt.includes(fileExt)) {
+      toast.error(`${validExt.join(', ')} 파일만 업로드 가능합니다.`)
       return
     }
-
-    if (!shippingFee) {
-      alert('배송비를 입력해주세요.')
-      return
-    }
-
-    setUploading(true)
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('shippingFee', shippingFee)
 
     try {
+      setIsUploading(true)
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('type', type)
+      
+      if (type === 'amazon') {
+        formData.append('shippingFee', shippingFee)
+      }
+
       const response = await fetch('/api/prices/upload', {
         method: 'POST',
         body: formData,
       })
 
-      if (!response.ok) {
-        throw new Error('업로드 실패')
+      const result = await response.json()
+      
+      if (!result.success) {
+        throw new Error(result.message)
       }
 
-      const result = await response.json()
-      setUploadResult(result)
-      router.refresh()
+      toast.success(
+        `총 ${result.totalCount}건 중 ${result.updatedCount}건이 업데이트되었습니다.` +
+        (result.failedCount > 0 ? ` (${result.failedCount}건 실패)` : '')
+      )
     } catch (error) {
       console.error('Error uploading file:', error)
-      alert('파일 업로드 중 오류가 발생했습니다.')
+      toast.error(error.message || '파일 업로드 중 오류가 발생했습니다.')
     } finally {
-      setUploading(false)
+      setIsUploading(false)
+      e.target.value = '' // 파일 입력 초기화
     }
   }
 
   return (
     <div className="space-y-6">
       <form 
-        onSubmit={handleSubmit} 
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleFileChange({ target: { files: [file] } });
+        }}
         onDragEnter={handleDrag}
         className="space-y-4"
       >
@@ -106,9 +104,11 @@ export default function PriceFileUpload() {
         >
           <input
             type="file"
-            accept=".txt"
+            id={inputId}
+            accept={type === 'amazon' ? '.xlsx,.xls' : '.csv'}
             onChange={handleFileChange}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+            disabled={isUploading}
           />
           <div className="text-center">
             <FaFileAlt className={`mx-auto h-12 w-12 ${file ? 'text-green-500' : 'text-gray-400'}`} />
@@ -123,10 +123,16 @@ export default function PriceFileUpload() {
               ) : (
                 <>
                   <p className="text-sm font-medium text-gray-600">
-                    아마존 가격 파일(TXT)을 이곳에 드래그하거나 클릭하여 선택하세요
+                    {type === 'amazon' 
+                      ? '아마존 가격 파일(xlsx, xls)을 이곳에 드래그하거나 클릭하여 선택하세요'
+                      : 'Yahoo 가격 파일(csv)을 이곳에 드래그하거나 클릭하여 선택하세요'
+                    }
                   </p>
                   <p className="mt-1 text-xs text-gray-500">
-                    .txt 파일만 지원됩니다
+                    {type === 'amazon' 
+                      ? '.xlsx, .xls 파일만 지원됩니다'
+                      : '.csv 파일만 지원됩니다'
+                    }
                   </p>
                 </>
               )}
@@ -144,32 +150,31 @@ export default function PriceFileUpload() {
           />
         }
 
-        <div className="mt-4">
-          <label htmlFor="shippingFee" className="block text-sm font-medium text-gray-700">
-            배송비 (¥)
-          </label>
-          <div className="mt-1">
+        {type === 'amazon' && (
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              배송비 (¥)
+            </label>
             <input
-              type="text"
-              id="shippingFee"
+              type="number"
               value={shippingFee}
-              onChange={handleShippingFeeChange}
-              placeholder="배송비를 입력하세요"
-              className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+              onChange={(e) => setShippingFee(parseInt(e.target.value) || 0)}
+              className="w-32 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="0"
             />
           </div>
-        </div>
+        )}
 
         <button
           type="submit"
-          disabled={!file || !shippingFee || uploading}
+          disabled={!file || isUploading}
           className={`w-full flex items-center justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white transition-all duration-200
-            ${!file || !shippingFee || uploading 
+            ${!file || isUploading 
               ? 'bg-gray-400 cursor-not-allowed' 
               : 'bg-blue-600 hover:bg-blue-700'
             }`}
         >
-          {uploading ? (
+          {isUploading ? (
             <>
               <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -186,31 +191,9 @@ export default function PriceFileUpload() {
         </button>
       </form>
 
-      {uploadResult && (
-        <div className={`rounded-md p-4 ${uploadResult.success ? 'bg-green-50' : 'bg-red-50'}`}>
-          <div className="flex">
-            <div className="flex-shrink-0">
-              {uploadResult.success ? (
-                <FaCheckCircle className="h-5 w-5 text-green-400" />
-              ) : (
-                <FaTimesCircle className="h-5 w-5 text-red-400" />
-              )}
-            </div>
-            <div className="ml-3">
-              <h3 className={`text-sm font-medium ${uploadResult.success ? 'text-green-800' : 'text-red-800'}`}>
-                {uploadResult.success ? '업로드 완료' : '업로드 실패'}
-              </h3>
-              {uploadResult.success && (
-                <div className="mt-2 text-sm text-green-700">
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li>총 데이터 수: {uploadResult.totalCount}개</li>
-                    <li>가격 업데이트: {uploadResult.updatedCount}개</li>
-                    <li>매칭 실패: {uploadResult.failedCount}개</li>
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
+      {isUploading && (
+        <div className="text-sm text-gray-500">
+          파일 업로드 중...
         </div>
       )}
     </div>
