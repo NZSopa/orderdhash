@@ -14,6 +14,10 @@ export default function ShipmentListPage() {
   const [editingField, setEditingField] = useState(null)
   const [editValue, setEditValue] = useState('')
   const [selectedShipments, setSelectedShipments] = useState([])
+  const [selectedLocation, setSelectedLocation] = useState(null)
+  const [sortField, setSortField] = useState(null)
+  const [sortOrder, setSortOrder] = useState('asc')
+  const [editingLocation, setEditingLocation] = useState(null)
   
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -56,15 +60,68 @@ export default function ShipmentListPage() {
   }
 
   // 출하 위치 변경
-  const handleLocationChange = (newLocation) => {
-    router.push(`/shipment/list?page=1&limit=${limit}&search=${search}&location=${newLocation}`)
+  const handleLocationChange = async (shipmentId, newLocation) => {
+    try {
+      const response = await fetch(`/api/shipment/${shipmentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          field: 'shipment_location',
+          value: newLocation
+        })
+      })
+
+      const result = await response.json()
+      
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+
+      toast.success('출하 위치가 수정되었습니다.')
+      setEditingLocation(null)
+      fetchShipments()
+    } catch (error) {
+      console.error('Error updating location:', error)
+      toast.error('출하 위치 수정 중 오류가 발생했습니다.')
+    }
   }
 
   // 편집 시작
-  const handleStartEdit = (shipment, field) => {
-    setEditingId(shipment.id)
-    setEditingField(field)
-    setEditValue(field === 'status' ? shipment.status : shipment.shipment_no)
+  const handleStartEdit = async (shipment, field) => {
+    if (field === 'shipment_no') {
+      try {
+        const response = await fetch('/api/shipment/generate-number', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            location: shipment.shipment_location
+          })
+        })
+        
+        const data = await response.json()
+        
+        if (data.error) {
+          toast.error(data.error)
+          return
+        }
+        
+        setEditingId(shipment.id)
+        setEditingField(field)
+        setEditValue(data.shipmentNo)
+      } catch (error) {
+        console.error('Error generating shipment number:', error)
+        toast.error('출하번호 생성 중 오류가 발생했습니다.')
+      }
+    } else {
+      setEditingId(shipment.id)
+      setEditingField(field)
+      setEditValue(field === 'status' ? shipment.status : shipment.shipment_no)
+    }
   }
 
   // 편집 취소
@@ -162,22 +219,122 @@ export default function ShipmentListPage() {
     }
   }
 
+  // 출하번호 일괄 생성
+  const handleGenerateShipmentNumbers = async () => {
+    if (!selectedShipments.length) {
+      toast.error('출하번호를 생성할 출하를 선택해주세요.')
+      return
+    }
+
+    if (location === 'all') {
+      toast.error('출하 위치를 먼저 선택해주세요.')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/shipment/generate-number', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          shipmentIds: selectedShipments,
+          location: location
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (data.error) {
+        toast.error(data.error)
+        return
+      }
+
+      toast.success('출하번호가 생성되었습니다.')
+      setSelectedShipments([])
+      fetchShipments()
+    } catch (error) {
+      console.error('Error generating shipment numbers:', error)
+      toast.error('출하번호 생성 중 오류가 발생했습니다.')
+    }
+  }
+
+  // 정렬 처리
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
+
+  // 정렬된 데이터 반환
+  const getSortedShipments = () => {
+    if (!sortField) return shipments
+
+    return [...shipments].sort((a, b) => {
+      let aValue = a[sortField]
+      let bValue = b[sortField]
+
+      // null 값 처리
+      if (aValue === null) aValue = ''
+      if (bValue === null) bValue = ''
+
+      // 숫자 필드 처리
+      if (['quantity', 'unit_value'].includes(sortField)) {
+        aValue = parseFloat(aValue) || 0
+        bValue = parseFloat(bValue) || 0
+      }
+
+      // 날짜 필드 처리
+      if (sortField === 'shipment_at') {
+        aValue = aValue ? new Date(aValue).getTime() : 0
+        bValue = bValue ? new Date(bValue).getTime() : 0
+      }
+
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1
+      } else {
+        return aValue < bValue ? 1 : -1
+      }
+    })
+  }
+
+  // 정렬 아이콘 렌더링
+  const renderSortIcon = (field) => {
+    if (sortField !== field) {
+      return <span className="text-gray-400 ml-1">↕</span>
+    }
+    return sortOrder === 'asc' ? 
+      <span className="text-blue-600 ml-1">↑</span> : 
+      <span className="text-blue-600 ml-1">↓</span>
+  }
+
   return (
     <div className="container mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">출하 목록</h1>
         <div className="flex gap-4 items-center">
           {selectedShipments.length > 0 && (
-            <button
-              onClick={handleCancelShipments}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-            >
-              출하 취소
-            </button>
+            <>
+              <button
+                onClick={handleGenerateShipmentNumbers}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                출하번호 생성
+              </button>
+              <button
+                onClick={handleCancelShipments}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                출하 취소
+              </button>
+            </>
           )}
           <select
             value={location}
-            onChange={(e) => handleLocationChange(e.target.value)}
+            onChange={(e) => router.push(`/shipment/list?page=1&limit=${limit}&search=${search}&location=${e.target.value}`)}
             className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">전체</option>
@@ -186,7 +343,7 @@ export default function ShipmentListPage() {
           </select>
           <select
             value={limit}
-            onChange={(e) => handleLimitChange(e.target.value)}
+            onChange={(e) => router.push(`/shipment/list?page=1&limit=${e.target.value}&search=${search}&location=${location}`)}
             className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="10">10개씩 보기</option>
@@ -213,40 +370,69 @@ export default function ShipmentListPage() {
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
               </th>
-              <th className="w-[120px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                출하위치
+              <th 
+                className="w-[120px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('shipment_location')}
+              >
+                출하위치 {renderSortIcon('shipment_location')}
               </th>
-              <th className="w-[150px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                출하번호
+              <th 
+                className="w-[150px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('shipment_no')}
+              >
+                출하번호 {renderSortIcon('shipment_no')}
               </th>
-              <th className="w-[150px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                주문번호
+              <th 
+                className="w-[150px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('reference_no')}
+              >
+                주문번호 {renderSortIcon('reference_no')}
               </th>
-              <th className="w-[120px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                상품코드
+              <th 
+                className="w-[120px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('product_code')}
+              >
+                상품코드 {renderSortIcon('product_code')}
               </th>
-              <th className="w-[250px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                상품명
+              <th 
+                className="w-[250px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('product_name')}
+              >
+                상품명 {renderSortIcon('product_name')}
               </th>
-              <th className="w-[100px] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                주문수량
+              <th 
+                className="w-[100px] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('quantity')}
+              >
+                주문수량 {renderSortIcon('quantity')}
               </th>
-              <th className="w-[120px] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                단가
+              <th 
+                className="w-[120px] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('unit_value')}
+              >
+                단가 {renderSortIcon('unit_value')}
               </th>
-              <th className="w-[120px] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th 
+                className="w-[120px] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+              >
                 총 금액
               </th>
-              <th className="w-[120px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                상태
+              <th 
+                className="w-[120px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('status')}
+              >
+                상태 {renderSortIcon('status')}
               </th>
-              <th className="w-[150px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                출하일시
+              <th 
+                className="w-[150px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('shipment_at')}
+              >
+                출하일시 {renderSortIcon('shipment_at')}
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {shipments.map((shipment) => (
+            {getSortedShipments().map((shipment) => (
               <tr key={shipment.id} className="hover:bg-gray-50">
                 <td className="px-3 py-4 whitespace-nowrap">
                   <input
@@ -257,7 +443,26 @@ export default function ShipmentListPage() {
                   />
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm">
-                  {shipment.shipment_location}
+                  {editingLocation === shipment.id ? (
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="border rounded px-2 py-1 text-sm"
+                        defaultValue={shipment.shipment_location}
+                        onChange={(e) => handleLocationChange(shipment.id, e.target.value)}
+                        onBlur={() => setEditingLocation(null)}
+                      >
+                        <option value="aus_kn">AUS KN</option>
+                        <option value="nz_bis">NZ BIS</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setEditingLocation(shipment.id)}
+                      className="hover:text-blue-600"
+                    >
+                      {shipment.shipment_location}
+                    </button>
+                  )}
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm">
                   {editingId === shipment.id && editingField === 'shipment_no' ? (
@@ -293,7 +498,7 @@ export default function ShipmentListPage() {
                 <td className="px-3 py-4 whitespace-nowrap text-sm">{shipment.reference_no}</td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm">{shipment.product_code}</td>
                 <td className="px-3 py-4 text-sm">
-                  <div className="line-clamp-2">{shipment.product_name}</div>
+                  <div className="whitespace-pre-line break-words">{shipment.product_name}</div>
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm text-right">
                   {(shipment.quantity || 0).toLocaleString()}
@@ -344,7 +549,7 @@ export default function ShipmentListPage() {
                   )}
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm">
-                  {shipment.shipmentment_at ? new Date(shipment.shipment_at).toLocaleString() : ''}
+                  {shipment.shipment_at ? new Date(shipment.shipment_at).toLocaleString() : ''}
                 </td>
               </tr>
             ))}

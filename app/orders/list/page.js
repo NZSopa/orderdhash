@@ -23,6 +23,8 @@ export default function OrderListPage() {
   const [highlightedOrder, setHighlightedOrder] = useState(null)
   const [editingOrder, setEditingOrder] = useState(null)
   const [pendingOrders, setPendingOrders] = useState([])
+  const [sortField, setSortField] = useState(null)
+  const [sortOrder, setSortOrder] = useState('asc')
   
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -335,6 +337,52 @@ export default function OrderListPage() {
     router.push(`/orders/list?page=1&limit=${limit}&search=&startDate=${date}&endDate=${date}`)
   }
 
+  // 정렬 처리
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
+
+  // 정렬된 데이터 반환
+  const getSortedOrders = () => {
+    if (!sortField) return orders
+
+    return [...orders].sort((a, b) => {
+      let aValue = a[sortField]
+      let bValue = b[sortField]
+
+      // null 값 처리
+      if (aValue === null) aValue = ''
+      if (bValue === null) bValue = ''
+
+      // 숫자 필드 처리
+      if (['quantity', 'sales_price', 'current_stock'].includes(sortField)) {
+        aValue = parseFloat(aValue) || 0
+        bValue = parseFloat(bValue) || 0
+      }
+
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1
+      } else {
+        return aValue < bValue ? 1 : -1
+      }
+    })
+  }
+
+  // 정렬 아이콘 렌더링
+  const renderSortIcon = (field) => {
+    if (sortField !== field) {
+      return <span className="text-gray-400 ml-1">↕</span>
+    }
+    return sortOrder === 'asc' ? 
+      <span className="text-blue-600 ml-1">↑</span> : 
+      <span className="text-blue-600 ml-1">↓</span>
+  }
+
   return (
     <div className="container mx-auto">
       {/* 경고 섹션 */}
@@ -483,40 +531,70 @@ export default function OrderListPage() {
                   className="rounded border-gray-300"
                 />
               </th>
-              <th className="w-[70px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                플랫폼
+              <th 
+                className="w-[70px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('sales_site')}
+              >
+                플랫폼 {renderSortIcon('sales_site')}
               </th>
-              <th className="w-[70px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                출고지
+              <th 
+                className="w-[70px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('shipment_location')}
+              >
+                출고지 {renderSortIcon('shipment_location')}
               </th>
-              <th className="w-[70px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                재고
+              <th 
+                className="w-[70px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('current_stock')}
+              >
+                재고 {renderSortIcon('current_stock')}
               </th>
-              <th className="w-[150px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                주문번호
+              <th 
+                className="w-[150px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('reference_no')}
+              >
+                주문번호 {renderSortIcon('reference_no')}
               </th>
-              <th className="w-[100px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                상품코드
+              <th 
+                className="w-[100px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('sku')}
+              >
+                상품코드 {renderSortIcon('sku')}
               </th>
-              <th className="w-[300px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                제품명
+              <th 
+                className="w-[300px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('original_product_name')}
+              >
+                제품명 {renderSortIcon('original_product_name')}
               </th>
-              <th className="w-[100px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                수취인
+              <th 
+                className="w-[100px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('consignee_name')}
+              >
+                수취인 {renderSortIcon('consignee_name')}
               </th>
-              <th className="w-[50px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                수량
+              <th 
+                className="w-[50px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('quantity')}
+              >
+                수량 {renderSortIcon('quantity')}
               </th>
-              <th className="w-[60px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                금액
+              <th 
+                className="w-[60px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('sales_price')}
+              >
+                금액 {renderSortIcon('sales_price')}
               </th>
-              <th className="w-[60px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                상태
+              <th 
+                className="w-[60px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('status')}
+              >
+                상태 {renderSortIcon('status')}
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {orders.map((order) => (
+            {getSortedOrders().map((order) => (
               <tr 
                 key={order.reference_no} 
                 id={`order-${order.reference_no}`}

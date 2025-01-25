@@ -123,12 +123,14 @@ export async function POST(request) {
             address,
             sales_site,
             sales_url,
-            phone_number
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            phone_number,
+            set_qty
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `)
 
         const insertMany = db.transaction((orders) => {
           for (const order of orders) {
+            console.log('Quantity:', order.quantity, 'Set Qty:', order.set_qty);
             // 제품 정보 조회
             const product = db.prepare(`
               SELECT 
@@ -140,22 +142,17 @@ export async function POST(request) {
               WHERE sl.sales_code = ?
             `).get(order.sku)
 
-            // 출하번호 생성
-            const date = new Date()
-            const year = date.getFullYear()
-            const month = String(date.getMonth() + 1).padStart(2, '0')
-            const day = String(date.getDate()).padStart(2, '0')
-            const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
-            // const shipmentNo = `SH${year}${month}${day}${random}`
-
+            // 수량 계산
+            const set_qty = parseInt(product?.set_qty) || 0
+            const product_name = set_qty > 1 ? `${order.product_name} (${set_qty} SETS)` : order.product_name
             stmt.run([
               order.shipment_location,
               order.reference_no,
               'processing',
               order.sku,
               order.product_code,
-              order.product_name,
-              order.quantity * order.set_qty || 1,
+              product_name,
+              order.quantity,
               order.sales_price || 0,
               order.consignee_name,
               order.kana,
@@ -163,7 +160,8 @@ export async function POST(request) {
               order.address,
               order.sales_site,
               order.sales_url,
-              order.phone_number
+              order.phone_number,
+              set_qty
             ])
           }
         })
