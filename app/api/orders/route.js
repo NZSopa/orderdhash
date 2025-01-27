@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getDB, withDB } from '../../lib/db'
+import { getDB, withDB } from '@/app/lib/db'
 
 export async function GET(request) {
   try {
@@ -9,6 +9,7 @@ export async function GET(request) {
     const search = searchParams.get('search') || ''
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
+    const status = searchParams.get('status')
 
     let whereClause = 'WHERE 1=1'
     const params = []
@@ -33,6 +34,10 @@ export async function GET(request) {
       params.push(startDate, endDate)
     }
 
+    if (status === 'pending') {
+      whereClause += ` AND (o.status IS NULL OR o.status NOT LIKE '%sh%')`
+    }
+
     const db = await getDB()
     
     // 전체 개수 조회
@@ -51,6 +56,7 @@ export async function GET(request) {
         o.postal_code, o.address, o.phone_number, o.created_at,
         o.status, o.updated_at, o.product_code, o.product_name,
         o.sales_price, o.sales_site, o.site_url, o.shipment_location,
+        o.set_qty, o.weight,
         CASE 
           WHEN o.shipment_location LIKE 'aus%' THEN i.aus_stock
           ELSE i.nz_stock
@@ -75,100 +81,80 @@ export async function GET(request) {
   }
 }
 
-export async function POST(req) {
-  const db = getDB()
-  try {
-    const orders = await req.json()
-    console.log('Received orders:', orders.length)
-    
-    // 기존 주문번호 조회
-    const duplicateErrors = []
-    const validOrders = []
+export async function POST(request) {
+  return await withDB(async (db) => {
+    try {
+      // 요청 데이터를 UTF-8로 디코딩
+      const buffer = await request.arrayBuffer()
+      const decoder = new TextDecoder('utf-8')
+      const text = decoder.decode(buffer)
+      const orders = JSON.parse(text)
 
-    // 모든 주문번호 목록을 한 번에 가져오기
-    const existingOrders = db.prepare('SELECT reference_no FROM orders').all()
-    const existingRefNos = new Set(existingOrders.map(order => order.reference_no))
-    
-    console.log('Existing reference numbers:', existingRefNos.size)
-
-    for (const order of orders) {
-      console.log('Checking order:', order.reference_no)
-      
-      if (existingRefNos.has(order.reference_no)) {
-        console.log('Duplicate found:', order.reference_no)
-        duplicateErrors.push({
-          reference_no: order.reference_no,
-          error_type: 'duplicate',
-          message: '이미 등록된 주문번호입니다.'
-        })
-      } else {
-        validOrders.push(order)
-      }
-    }
-
-    console.log('Valid orders:', validOrders.length)
-    console.log('Duplicate errors:', duplicateErrors.length)
-
-    // 유효한 주문만 저장
-    if (validOrders.length > 0) {
-      const stmt = db.prepare(`
-        INSERT INTO orders (
-          reference_no,
-          sku,
-          original_product_name,
-          quantity,
-          consignee_name,
-          kana,
-          postal_code,
-          address,
-          phone_number
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `)
+      // 트랜잭션 시작
+      db.prepare('BEGIN TRANSACTION').run()
 
       try {
-        const insertMany = db.transaction((orders) => {
-          for (const order of orders) {
-            stmt.run([
-              order.reference_no,
-              order.sku,
-              order.original_product_name,
-              order.quantity,
-              order.consignee_name,
-              order.kana,
-              order.postal_code,
-              order.address,
-              order.phone_number
-            ])
-          }
+        const stmt = db.prepare(`
+          INSERT INTO orders (
+            reference_no,
+            sales_site,
+            shipment_location,
+            sku,
+            product_code,
+            product_name,
+            quantity,
+            sales_price,
+            consignee_name,
+            kana,
+            postal_code,
+            address,
+            phone_number,
+            weight,
+            set_qty,
+            created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        `)
+
+        for (const order of orders) {
+          stmt.run([
+            order.reference_no,
+            order.sales_site,
+            order.shipment_location,
+            order.sku,
+            order.product_code,
+            order.product_name,
+            order.quantity,
+            order.sales_price,
+            order.consignee_name,
+            order.kana || '',
+            order.postal_code,
+            order.address,
+            order.phone_number,
+            order.weight,
+            order.set_qty || 1
+          ])
+        }
+
+        // 트랜잭션 커밋
+        db.prepare('COMMIT').run()
+
+        return NextResponse.json({ 
+          success: true,
+          message: `${orders.length}건의 주문이 등록되었습니다.`
         })
-
-        insertMany(validOrders)
-        console.log('Successfully inserted orders')
-      } catch (insertError) {
-        console.error('Error inserting orders:', insertError)
-        throw insertError
+      } catch (error) {
+        // 오류 발생 시 롤백
+        db.prepare('ROLLBACK').run()
+        throw error
       }
+    } catch (error) {
+      console.error('Error creating orders:', error)
+      return NextResponse.json(
+        { error: '주문 등록 중 오류가 발생했습니다.' },
+        { status: 500 }
+      )
     }
-
-    return NextResponse.json({
-      success: true,
-      total: validOrders.length,
-      duplicateErrors: duplicateErrors,
-      errorCount: duplicateErrors.length,
-      summary: {
-        total: orders.length,
-        success: validOrders.length,
-        error: duplicateErrors.length
-      }
-    })
-
-  } catch (error) {
-    console.error('Error processing orders:', error)
-    return NextResponse.json(
-      { error: '주문 처리 중 오류가 발생했습니다.' },
-      { status: 500 }
-    )
-  }
+  })
 }
 
 export async function DELETE(req) {
@@ -195,11 +181,11 @@ export async function DELETE(req) {
 
 export async function PUT(request) {
   try {
-    const { reference_no, shipment_location } = await request.json()
+    const { reference_no, shipment_location, kana } = await request.json()
     
-    if (!reference_no || !shipment_location) {
+    if (!reference_no || (!shipment_location && kana === undefined)) {
       return NextResponse.json(
-        { error: '주문번호와 출고지 정보가 필요합니다.' },
+        { error: '주문번호와 수정할 정보가 필요합니다.' },
         { status: 400 }
       )
     }
@@ -207,13 +193,27 @@ export async function PUT(request) {
     const db = await getDB()
     
     // 주문 정보 업데이트
+    let updateFields = []
+    let params = []
+
+    if (shipment_location) {
+      updateFields.push('shipment_location = ?')
+      params.push(shipment_location)
+    }
+
+    if (kana !== undefined) {
+      updateFields.push('kana = ?')
+      params.push(kana)
+    }
+
+    // updateFields.push('updated_at = datetime("now")')
+    params.push(reference_no)
+
     const result = db.prepare(`
       UPDATE orders 
-      SET 
-        shipment_location = ?,
-        updated_at = datetime('now')
+      SET ${updateFields.join(', ')}
       WHERE reference_no = ?
-    `).run(shipment_location, reference_no)
+    `).run(params)
 
     if (result.changes === 0) {
       return NextResponse.json(
@@ -224,7 +224,7 @@ export async function PUT(request) {
 
     return NextResponse.json({
       success: true,
-      message: '출고지가 성공적으로 수정되었습니다.'
+      message: '주문 정보가 성공적으로 수정되었습니다.'
     })
 
   } catch (error) {

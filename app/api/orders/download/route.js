@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
+import { getDB } from '@/app/lib/db'
 
 export async function POST(request) {
   try {
@@ -51,6 +52,57 @@ export async function POST(request) {
     console.error('Error generating Excel file:', error)
     return NextResponse.json(
       { error: '파일 생성 중 오류가 발생했습니다.' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const date = searchParams.get('date')
+
+    if (!date) {
+      return NextResponse.json({ error: '날짜를 지정해주세요.' }, { status: 400 })
+    }
+
+    const db = await getDB()
+    
+    const orders = db.prepare(`
+      SELECT reference_no, consignee_name, kana
+      FROM orders
+      WHERE DATE(substr(created_at, 1, 10)) = DATE(?)
+      ORDER BY created_at ASC
+    `).all(date)
+
+    // CSV 헤더
+    let csv = 'reference_no,consignee_name,kana\n'
+    
+    // CSV 데이터 생성
+    orders.forEach(order => {
+      csv += `${order.reference_no},"${order.consignee_name}","${order.kana || ''}"\n`
+    })
+
+    // UTF-8 BOM 추가
+    const BOM = '\uFEFF'
+    const csvWithBOM = BOM + csv
+
+    // CSV 파일 다운로드를 위한 헤더 설정
+    const headers = {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename=orders_${date}.csv`
+    }
+
+    // UTF-8로 인코딩된 Uint8Array 생성
+    const encoder = new TextEncoder()
+    const data = encoder.encode(csvWithBOM)
+
+    return new Response(data, { headers })
+
+  } catch (error) {
+    console.error('Error downloading orders:', error)
+    return NextResponse.json(
+      { error: '주문 데이터 다운로드 중 오류가 발생했습니다.' },
       { status: 500 }
     )
   }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import Pagination from '@/app/components/Pagination'
@@ -28,11 +28,7 @@ export default function ShipmentListPage() {
   const location = searchParams.get('location') || 'all'
 
   // 출하 목록 조회
-  useEffect(() => {
-    fetchShipments()
-  }, [page, search, limit, location])
-
-  const fetchShipments = async () => {
+  const fetchShipments = useCallback(async () => {
     try {
       setLoading(true)
       const response = await fetch(
@@ -52,7 +48,11 @@ export default function ShipmentListPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [page, search, limit, location])
+
+  useEffect(() => {
+    fetchShipments()
+  }, [fetchShipments])
 
   // 페이지당 표시 수 변경
   const handleLimitChange = (newLimit) => {
@@ -181,45 +181,7 @@ export default function ShipmentListPage() {
     })
   }
 
-  // 출하 취소 처리
-  const handleCancelShipments = async () => {
-    if (!selectedShipments.length) {
-      toast.error('취소할 출하를 선택해주세요.')
-      return
-    }
-
-    if (!confirm('선택한 출하를 취소하시겠습니까?')) {
-      return
-    }
-
-    try {
-      const response = await fetch('/api/shipment/cancel', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          shipmentIds: selectedShipments
-        })
-      })
-
-      const result = await response.json()
-      
-      if (result.error) {
-        toast.error(result.error)
-        return
-      }
-
-      toast.success('출하가 취소되었습니다.')
-      setSelectedShipments([])
-      fetchShipments()
-    } catch (error) {
-      console.error('Error canceling shipments:', error)
-      toast.error('출하 취소 중 오류가 발생했습니다.')
-    }
-  }
-
-  // 출하번호 일괄 생성
+  // 출하번호 생성
   const handleGenerateShipmentNumbers = async () => {
     if (!selectedShipments.length) {
       toast.error('출하번호를 생성할 출하를 선택해주세요.')
@@ -256,6 +218,44 @@ export default function ShipmentListPage() {
     } catch (error) {
       console.error('Error generating shipment numbers:', error)
       toast.error('출하번호 생성 중 오류가 발생했습니다.')
+    }
+  }
+
+  // 출하 취소
+  const handleCancelShipments = async () => {
+    if (!selectedShipments.length) {
+      toast.error('취소할 출하를 선택해주세요.')
+      return
+    }
+
+    if (!confirm('선택한 출하를 취소하시겠습니까?')) {
+      return
+    }
+
+    try {
+      const response = await fetch('/api/shipment/cancel', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          shipmentIds: selectedShipments
+        })
+      })
+
+      const result = await response.json()
+      
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+
+      toast.success('출하가 취소되었습니다.')
+      setSelectedShipments([])
+      fetchShipments()
+    } catch (error) {
+      console.error('Error canceling shipments:', error)
+      toast.error('출하 취소 중 오류가 발생했습니다.')
     }
   }
 
@@ -311,28 +311,162 @@ export default function ShipmentListPage() {
       <span className="text-blue-600 ml-1">↓</span>
   }
 
+  // 출하 목록 다운로드
+  const handleDownloadShipment = async () => {
+    try {
+      if (location === 'all') {
+        toast.error('출하 위치를 먼저 선택해주세요.')
+        return
+      }
+
+      const response = await fetch(`/api/shipment/download?date=${new Date().toISOString().split('T')[0]}&location=${location}`)
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '다운로드 중 오류가 발생했습니다.')
+      }
+      
+      // Blob으로 변환하여 다운로드
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `shipments_${location}_${new Date().toISOString().split('T')[0]}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      toast.success('출하 목록이 다운로드되었습니다.')
+    } catch (error) {
+      console.error('Error downloading shipment data:', error)
+      toast.error(error.message)
+    }
+  }
+
+  // 출하 목록 업로드
+  const handleUploadShipment = async (event) => {
+    try {
+      const file = event.target.files[0]
+      if (!file) return
+      
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      const response = await fetch('/api/shipment/upload', {
+        method: 'POST',
+        body: formData
+      })
+      
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error || '업로드 중 오류가 발생했습니다.')
+      }
+      
+      toast.success(result.message)
+      fetchShipments() // 목록 새로고침
+    } catch (error) {
+      console.error('Error uploading shipment data:', error)
+      toast.error(error.message)
+    }
+    
+    // 파일 입력 초기화
+    event.target.value = ''
+  }
+
+  const handleDownloadSSS = async () => {
+    try {
+      if (location === 'all') {
+        toast.error('출하 위치를 먼저 선택해주세요.')
+        return
+      }
+
+      if (location !== 'nz_bis') {
+        toast.error('SSS 다운로드는 NZ BIS 출하만 가능합니다.')
+        return
+      }
+
+      // 선택된 출하건 중 출하번호가 없는 경우 체크
+      const hasNoShipmentNo = shipments.some(shipment => !shipment.shipment_no)
+      if (hasNoShipmentNo) {
+        toast.error('출하번호를 먼저 입력하세요.')
+        return
+      }
+
+      const response = await fetch(`/api/shipment/download-sss?location=${location}`)
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '다운로드 중 오류가 발생했습니다.')
+      }
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `SSS_${location}_${new Date().toISOString().split('T')[0]}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      toast.success('SSS 파일이 다운로드되었습니다.')
+    } catch (error) {
+      console.error('Error downloading SSS data:', error)
+      toast.error(error.message)
+    }
+  }
+
+  const handleDownloadKSE = async () => {
+    try {
+      if (location === 'all') {
+        toast.error('출하 위치를 선택해주세요.')
+        return
+      }
+
+      if (location !== 'aus_kn') {
+        toast.error('KSE 다운로드는 AUS KN 출하만 가능합니다.')
+        return
+      }
+
+      // 선택된 출하건 중 출하번호가 없는 경우 체크
+      const hasNoShipmentNo = shipments.some(shipment => !shipment.shipment_no)
+      if (hasNoShipmentNo) {
+        toast.error('출하번호를 먼저 입력하세요.')
+        return
+      }
+
+      const response = await fetch(`/api/shipment/download-kse?location=${location}`)
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '다운로드 중 오류가 발생했습니다.')
+      }
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `KSE_${location}_${new Date().toISOString().split('T')[0]}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      toast.success('KSE 파일이 다운로드되었습니다.')
+    } catch (error) {
+      console.error('Error downloading KSE data:', error)
+      toast.error(error.message)
+    }
+  }
+
   return (
     <div className="container mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">출하 목록</h1>
         <div className="flex gap-4 items-center">
-          {selectedShipments.length > 0 && (
-            <>
-              <button
-                onClick={handleGenerateShipmentNumbers}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                출하번호 생성
-              </button>
-              <button
-                onClick={handleCancelShipments}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-              >
-                출하 취소
-              </button>
-            </>
-          )}
-          <select
+        <select
             value={location}
             onChange={(e) => router.push(`/shipment/list?page=1&limit=${limit}&search=${search}&location=${e.target.value}`)}
             className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -351,10 +485,62 @@ export default function ShipmentListPage() {
             <option value="50">50개씩 보기</option>
             <option value="100">100개씩 보기</option>
           </select>
-          <SearchBox 
-            defaultValue={search} 
-            onSearch={(value) => router.push(`/shipment/list?page=1&limit=${limit}&search=${value}&location=${location}`)} 
-          />
+        </div>
+        
+      </div>
+      <div className="flex justify-between items-center mb-6">
+       
+        <div className="flex gap-4 items-center">
+        
+          {selectedShipments.length > 0 && (
+            <>
+              <button
+                onClick={handleGenerateShipmentNumbers}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                출하번호 생성
+              </button>
+              <button
+                onClick={handleCancelShipments}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                출하 취소
+              </button>
+            </>
+          )}
+          <button
+            onClick={handleDownloadShipment}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+          >
+            출하목록 다운로드
+          </button>
+          {location === 'nz_bis' && (
+            <button
+              onClick={handleDownloadSSS}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              SSS 다운로드
+            </button>
+          )}
+          {location === 'aus_kn' && (
+            <button
+              onClick={handleDownloadKSE}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              KSE 다운로드
+            </button>
+          )}
+          <label className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 cursor-pointer">
+            출하목록 업로드
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleUploadShipment}
+              className="hidden"
+            />
+          </label>
+          
+
         </div>
       </div>
 
@@ -401,7 +587,7 @@ export default function ShipmentListPage() {
                 상품명 {renderSortIcon('product_name')}
               </th>
               <th 
-                className="w-[100px] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                className="w-[120px] px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSort('quantity')}
               >
                 주문수량 {renderSortIcon('quantity')}

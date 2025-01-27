@@ -124,27 +124,17 @@ export async function POST(request) {
             sales_site,
             sales_url,
             phone_number,
-            set_qty
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            set_qty,
+            weight  
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `)
 
         const insertMany = db.transaction((orders) => {
           for (const order of orders) {
-            console.log('Quantity:', order.quantity, 'Set Qty:', order.set_qty);
-            // 제품 정보 조회
-            const product = db.prepare(`
-              SELECT 
-                sl.product_code,
-                sl.set_qty,
-                pm.shipping_from
-              FROM sales_listings sl
-              LEFT JOIN product_master pm ON sl.product_code = pm.product_code
-              WHERE sl.sales_code = ?
-            `).get(order.sku)
-
             // 수량 계산
-            const set_qty = parseInt(product?.set_qty) || 0
+            const set_qty = order.set_qty || 1
             const product_name = set_qty > 1 ? `${order.product_name} (${set_qty} SETS)` : order.product_name
+            
             stmt.run([
               order.shipment_location,
               order.reference_no,
@@ -159,9 +149,10 @@ export async function POST(request) {
               order.postal_code,
               order.address,
               order.sales_site,
-              order.sales_url,
+              order.site_url,
               order.phone_number,
-              set_qty
+              order.set_qty || 1,
+              order.weight || null
             ])
           }
         })

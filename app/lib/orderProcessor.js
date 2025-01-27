@@ -51,7 +51,7 @@ export async function processOrders(files, orderType, db) {
       } else {
         // sales_listings에서 추가 정보 조회
         const salesInfo = db.prepare(`
-          SELECT product_code, set_qty, sales_price, sales_site, site_url
+          SELECT product_code, set_qty, sales_price, sales_site, site_url, weight
           FROM sales_listings
           WHERE sales_code = ?
         `).get(order['sku'])
@@ -84,7 +84,8 @@ export async function processOrders(files, orderType, db) {
           sales_site: salesInfo?.sales_site || null,
           site_url: salesInfo?.site_url || null,
           shipment_location: productInfo?.shipping_from || null,
-          set_qty: salesInfo?.set_qty || null
+          set_qty: salesInfo?.set_qty || null,
+          weight: salesInfo?.weight || null
         })
       }
     }
@@ -97,13 +98,13 @@ export async function processOrders(files, orderType, db) {
           quantity, consignee_name, kana,
           postal_code, address, phone_number, created_at,
           product_code, product_name, sales_price, sales_site,
-          site_url, shipment_location, set_qty
+          site_url, shipment_location, set_qty, weight
         ) VALUES (
           @reference_no, @sku, @original_product_name,
           @quantity, @consignee_name, @kana,
           @postal_code, @address, @phone_number, @created_at,
           @product_code, @product_name, @sales_price, @sales_site,
-          @site_url, @shipment_location, @set_qty
+          @site_url, @shipment_location, @set_qty, @weight
         )
       `)
 

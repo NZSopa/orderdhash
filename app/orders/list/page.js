@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import Pagination from '@/app/components/Pagination'
@@ -15,13 +15,13 @@ export default function OrderListPage() {
   const [total, setTotal] = useState(0)
   const [selectedOrders, setSelectedOrders] = useState([])
   const [isProcessing, setIsProcessing] = useState(false)
-  const [humanCheckOrders, setHumanCheckOrders] = useState(null)
   const [warnings, setWarnings] = useState({
     duplicates: [],
     customsRisk: []
   })
   const [highlightedOrder, setHighlightedOrder] = useState(null)
   const [editingOrder, setEditingOrder] = useState(null)
+  const [editingKana, setEditingKana] = useState(null)
   const [pendingOrders, setPendingOrders] = useState([])
   const [sortField, setSortField] = useState(null)
   const [sortOrder, setSortOrder] = useState('asc')
@@ -35,10 +35,33 @@ export default function OrderListPage() {
   const startDate = searchParams.get('startDate') || new Date().toISOString().split('T')[0]
   const endDate = searchParams.get('endDate') || new Date().toISOString().split('T')[0]
 
-  // 주문 목록 조회
+  const fetchOrders = useCallback(async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(
+        `/api/orders?page=${page}&limit=${limit}&search=${search}&startDate=${startDate}&endDate=${endDate}&status=pending`
+      )
+      const data = await response.json()
+      
+      if (data.error) {
+        throw new Error(data.error)
+      }
+      
+      console.log('Fetched orders:', data.data) // 디버깅용 로그
+      
+      setOrders(data.data)
+      setTotal(data.total)
+    } catch (error) {
+      console.error('Error fetching orders:', error)
+      toast.error('주문 목록을 불러오는 중 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }, [page, search, limit, startDate, endDate])
+
   useEffect(() => {
     fetchOrders()
-  }, [page, search, limit, startDate, endDate])
+  }, [fetchOrders])
 
   // 미출하 주문 현황 조회
   const fetchPendingOrders = async () => {
@@ -61,28 +84,6 @@ export default function OrderListPage() {
   useEffect(() => {
     fetchPendingOrders()
   }, [])
-
-  const fetchOrders = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch(
-        `/api/orders?page=${page}&limit=${limit}&search=${search}&startDate=${startDate}&endDate=${endDate}`
-      )
-      const data = await response.json()
-      
-      if (data.error) {
-        throw new Error(data.error)
-      }
-      
-      setOrders(data.data)
-      setTotal(data.total)
-    } catch (error) {
-      console.error('Error fetching orders:', error)
-      toast.error('주문 목록을 불러오는 중 오류가 발생했습니다.')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   // 페이지당 표시 수 변경
   const handleLimitChange = (newLimit) => {
@@ -135,9 +136,16 @@ export default function OrderListPage() {
 
     setIsProcessing(true)
     try {
+      // 선택된 주문의 전체 데이터 가져오기
       const selectedOrderData = orders.filter(order => 
         selectedOrders.includes(order.reference_no)
-      )
+      ).map(order => ({
+        ...order,
+        set_qty: parseInt(order.set_qty) || 1,  // set_qty가 없으면 기본값 1
+        weight: order.weight || null  // weight가 없으면 null
+      }))
+
+      console.log('Selected orders:', selectedOrderData) // 디버깅용 로그
 
       const response = await fetch('/api/shipment', {
         method: 'POST',
@@ -155,7 +163,8 @@ export default function OrderListPage() {
 
       toast.success('출하 처리가 완료되었습니다.')
       setSelectedOrders([])
-      fetchOrders()
+      await fetchOrders()
+      await fetchPendingOrders()
     } catch (error) {
       console.error('Error processing shipment:', error)
       toast.error(error.message || '출하 처리 중 오류가 발생했습니다.')
@@ -164,68 +173,14 @@ export default function OrderListPage() {
     }
   }
 
-  // 출하 확정 처리
-  const handleConfirmShipment = async (results) => {
-    try {
-      // Human Check가 필요한 경우와 아닌 경우를 구분
-      const orders = humanCheckOrders 
-        ? humanCheckOrders.map(r => r.order)
-        : results.map(r => r.order)
-
-      const confirmations = results.map(conf => ({
-        shipment_no: generateShipmentNo(),
-        shipping_from: conf.shipping_from.startsWith('aus') ? 'aus' : 'nz'
-      }))
-
-      const response = await fetch('/api/shipment/confirm', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ orders, confirmations })
-      })
-
-      const result = await response.json()
-      
-      if (result.error) {
-        throw new Error(result.error)
-      }
-
-      toast.success('출하 처리가 완료되었습니다.')
-      setSelectedOrders([])
-      fetchOrders()
-    } catch (error) {
-      console.error('Error confirming shipment:', error)
-      toast.error(error.message || '출하 확정 중 오류가 발생했습니다.')
-    }
-  }
-
-  const handleHumanCheckConfirm = async (confirmations) => {
-    try {
-      await handleConfirmShipment(confirmations)
-      setHumanCheckOrders(null)
-    } catch (error) {
-      console.error('Error confirming human check:', error)
-      toast.error(error.message || '출하 확인 중 오류가 발생했습니다.')
-    }
-  }
-
-  // 출하 번호 생성
-  const generateShipmentNo = () => {
-    const date = new Date()
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
-    return `SH${year}${month}${day}${random}`
-  }
+ 
 
   // 경고 사항 체크
   const checkWarnings = async (orders) => {
     try {
       // 중복 체크를 위한 맵
-      const referenceMap = new Map()
-      const consigneeMap = new Map()
+      const referenceGroups = new Map()
+      const consigneeGroups = new Map()
       const duplicates = []
 
       // 관세 위험 체크를 위한 맵
@@ -236,26 +191,17 @@ export default function OrderListPage() {
         // status가 NULL이거나 비어있는 주문만 처리
         if (order.status) continue;
 
-        // 중복 체크
-        if (referenceMap.has(order.reference_no)) {
-          duplicates.push({
-            type: 'reference_no',
-            value: order.reference_no,
-            items: [referenceMap.get(order.reference_no), order]
-          })
-        } else {
-          referenceMap.set(order.reference_no, order)
+        // 중복 체크 - 주문번호
+        if (!referenceGroups.has(order.reference_no)) {
+          referenceGroups.set(order.reference_no, [])
         }
+        referenceGroups.get(order.reference_no).push(order)
 
-        if (consigneeMap.has(order.consignee_name)) {
-          duplicates.push({
-            type: 'consignee',
-            value: order.consignee_name,
-            items: [consigneeMap.get(order.consignee_name), order]
-          })
-        } else {
-          consigneeMap.set(order.consignee_name, order)
+        // 중복 체크 - 수취인
+        if (!consigneeGroups.has(order.consignee_name)) {
+          consigneeGroups.set(order.consignee_name, [])
         }
+        consigneeGroups.get(order.consignee_name).push(order)
 
         // 제품 정보 조회
         const response = await fetch(`/api/settings/product-codes?sku=${order.sku}`)
@@ -274,6 +220,27 @@ export default function OrderListPage() {
               totalValue
             })
           }
+        }
+      }
+
+      // 2차: 중복 그룹 처리
+      for (const [reference_no, items] of referenceGroups) {
+        if (items.length > 1) {
+          duplicates.push({
+            type: 'reference_no',
+            value: reference_no,
+            items: items
+          })
+        }
+      }
+
+      for (const [consignee_name, items] of consigneeGroups) {
+        if (items.length > 1) {
+          duplicates.push({
+            type: 'consignee',
+            value: consignee_name,
+            items: items
+          })
         }
       }
 
@@ -334,7 +301,7 @@ export default function OrderListPage() {
 
   // 미출하 주문 필터링
   const handlePendingOrderClick = (date) => {
-    router.push(`/orders/list?page=1&limit=${limit}&search=&startDate=${date}&endDate=${date}`)
+    router.push(`/orders/list?page=1&limit=${limit}&search=&startDate=${date}&endDate=${date}&status=pending`)
   }
 
   // 정렬 처리
@@ -383,8 +350,96 @@ export default function OrderListPage() {
       <span className="text-blue-600 ml-1">↓</span>
   }
 
+  const handleDownloadKana = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const response = await fetch(`/api/orders/download?date=${today}`)
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '다운로드 중 오류가 발생했습니다.')
+      }
+      
+      // Blob으로 변환하여 다운로드
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `orders_${today}.csv`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      toast.success('주문 데이터가 다운로드되었습니다.')
+    } catch (error) {
+      console.error('Error downloading kana data:', error)
+      toast.error(error.message)
+    }
+  }
+
+  const handleUploadKana = async (event) => {
+    try {
+      const file = event.target.files[0]
+      if (!file) return
+      
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      const response = await fetch('/api/orders/upload-kana', {
+        method: 'POST',
+        body: formData
+      })
+      
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error || '업로드 중 오류가 발생했습니다.')
+      }
+      
+      toast.success(result.message)
+      fetchOrders() // 목록 새로고침
+    } catch (error) {
+      console.error('Error uploading kana data:', error)
+      toast.error(error.message)
+    }
+    
+    // 파일 입력 초기화
+    event.target.value = ''
+  }
+
+  // kana 수정 처리 함수 추가
+  const handleKanaChange = async (reference_no, newKana) => {
+    try {
+      const response = await fetch('/api/orders', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reference_no,
+          kana: newKana,
+          shipment_location: orders.find(order => order.reference_no === reference_no)?.shipment_location
+        })
+      })
+
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error)
+      }
+
+      toast.success('kana가 수정되었습니다.')
+      setEditingKana(null)
+      fetchOrders()
+    } catch (error) {
+      console.error('Error updating kana:', error)
+      toast.error(error.message || 'kana 수정 중 오류가 발생했습니다.')
+    }
+  }
+
   return (
-    <div className="container mx-auto">
+    <div className="container max-w-none px-4">
       {/* 경고 섹션 */}
       <div className="mb-8 space-y-4">
         {/* 중복 주문 경고 */}
@@ -397,7 +452,7 @@ export default function OrderListPage() {
             <div className="mt-2 space-y-2">
               {warnings.duplicates.map((duplicate, index) => (
                 <div key={index} className="text-sm text-yellow-700">
-                  {duplicate.type === 'reference_no' ? '주문번호' : '수취인'} 중복: {duplicate.value}
+                  {duplicate.type === 'reference_no' ? '주문번호' : '수취인'} 중복: {duplicate.value} ({duplicate.items.length}건)
                   <div className="ml-4 text-xs text-gray-600">
                     {duplicate.items.map(item => (
                       <div key={item.reference_no}>
@@ -467,9 +522,25 @@ export default function OrderListPage() {
         </div>
       </div>
 
-      <div className="flex justify-between items-center mb-6">
+      <div className="space-y-4 mb-6">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-4">
         <h1 className="text-2xl font-bold">주문 목록</h1>
-        <div className="flex gap-4 items-center">
+            <select
+              value={limit}
+              onChange={(e) => handleLimitChange(e.target.value)}
+              className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="10">10개씩 보기</option>
+              <option value="20">20개씩 보기</option>
+              <option value="50">50개씩 보기</option>
+              <option value="100">100개씩 보기</option>
+            </select>
+            <SearchBox 
+              defaultValue={search} 
+              onSearch={(value) => router.push(`/orders/list?page=1&limit=${limit}&search=${value}&startDate=${startDate}&endDate=${endDate}`)} 
+            />
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handleTodayOrders}
@@ -495,20 +566,10 @@ export default function OrderListPage() {
               className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <select
-            value={limit}
-            onChange={(e) => handleLimitChange(e.target.value)}
-            className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="10">10개씩 보기</option>
-            <option value="20">20개씩 보기</option>
-            <option value="50">50개씩 보기</option>
-            <option value="100">100개씩 보기</option>
-          </select>
-          <SearchBox 
-            defaultValue={search} 
-            onSearch={(value) => router.push(`/orders/list?page=1&limit=${limit}&search=${value}&startDate=${startDate}&endDate=${endDate}`)} 
-          />
+        </div>
+
+        <div className="flex justify-end items-center">
+          <div className="flex items-center gap-2">
           <button
             onClick={handleShipment}
             disabled={isProcessing || selectedOrders.length === 0}
@@ -516,6 +577,22 @@ export default function OrderListPage() {
           >
             {isProcessing ? '처리 중...' : '출하 처리'}
           </button>
+            <button
+              onClick={handleDownloadKana}
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            >
+              Kana 다운로드
+            </button>
+            <label className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 cursor-pointer">
+              Kana 업로드
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleUploadKana}
+                className="hidden"
+              />
+            </label>
+          </div>
         </div>
       </div>
 
@@ -532,13 +609,13 @@ export default function OrderListPage() {
                 />
               </th>
               <th 
-                className="w-[70px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                className="w-[80px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSort('sales_site')}
               >
                 플랫폼 {renderSortIcon('sales_site')}
               </th>
               <th 
-                className="w-[70px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                className="w-[80px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSort('shipment_location')}
               >
                 출고지 {renderSortIcon('shipment_location')}
@@ -574,7 +651,13 @@ export default function OrderListPage() {
                 수취인 {renderSortIcon('consignee_name')}
               </th>
               <th 
-                className="w-[50px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                className="w-[100px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('kana')}
+              >
+                Kana {renderSortIcon('kana')}
+              </th>
+              <th 
+                className="w-[60px] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSort('quantity')}
               >
                 수량 {renderSortIcon('quantity')}
@@ -627,7 +710,6 @@ export default function OrderListPage() {
                       >
                         <option value="aus-kn">aus-kn</option>
                         <option value="nz-bis">nz-bis</option>
-                
                       </select>
                     </div>
                   ) : (
@@ -648,6 +730,31 @@ export default function OrderListPage() {
                 <td className="px-3 py-4 whitespace-nowrap text-sm">{order.sku}</td>
                 <td className="px-3 py-4 whitespace-normal text-sm">{order.original_product_name}</td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm">{order.consignee_name}</td>
+                <td className="px-3 py-4 whitespace-nowrap text-sm">
+                  {editingKana === order.reference_no ? (
+                    <input
+                      type="text"
+                      className="border rounded px-2 py-1 text-sm w-full"
+                      defaultValue={order.kana || ''}
+                      onBlur={(e) => handleKanaChange(order.reference_no, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleKanaChange(order.reference_no, e.target.value)
+                        } else if (e.key === 'Escape') {
+                          setEditingKana(null)
+                        }
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <button
+                      onClick={() => setEditingKana(order.reference_no)}
+                      className="hover:text-blue-600 text-left w-full"
+                    >
+                      {order.kana || ''}
+                    </button>
+                  )}
+                </td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm">{order.quantity}</td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm">{order.sales_price}</td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm">
@@ -679,12 +786,7 @@ export default function OrderListPage() {
         />
       </div>
 
-      <HumanCheckModal
-        isOpen={!!humanCheckOrders}
-        onClose={() => setHumanCheckOrders(null)}
-        orders={humanCheckOrders || []}
-        onConfirm={handleHumanCheckConfirm}
-      />
+
     </div>
   )
 } 
