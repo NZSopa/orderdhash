@@ -56,6 +56,7 @@ export async function POST(request) {
             weight = ?,
             memo = ?,
             shipment_at = ?,
+            status = 'completed',
             updated_at = datetime('now')
           WHERE shipment_no = ?
         `)

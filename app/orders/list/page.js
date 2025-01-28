@@ -708,8 +708,8 @@ export default function OrderListPage() {
                         onChange={(e) => handleLocationChange(order.reference_no, e.target.value)}
                         onBlur={() => setEditingOrder(null)}
                       >
-                        <option value="aus-kn">aus-kn</option>
-                        <option value="nz-bis">nz-bis</option>
+                        <option value="aus_kn">aus-kn</option>
+                        <option value="nz_bis">nz-bis</option>
                       </select>
                     </div>
                   ) : (

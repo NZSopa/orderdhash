@@ -13,6 +13,9 @@ const menuItems = [
     items: [
       { name: '주문 목록', href: '/orders/list' },
       { name: '출하 목록', href: '/shipment/list' },
+      { name: '출하 완료', href: '/shipment/completed' },
+      
+
     ],
   },
   {

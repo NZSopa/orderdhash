@@ -735,7 +735,7 @@ export default function ShipmentListPage() {
                   )}
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm">
-                  {shipment.shipment_at ? new Date(shipment.shipment_at).toLocaleString() : ''}
+                  {shipment.shipment_at ? new Date(shipment.shipment_at).toLocaleDateString('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''}
                 </td>
               </tr>
             ))}

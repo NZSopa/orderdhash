@@ -24,7 +24,6 @@ export async function GET(request) {
         s.product_name,
         s.quantity,
         s.set_qty,
-        s.weight,
         s.memo
       FROM shipment s
       WHERE s.shipment_no IS NOT NULL
@@ -55,7 +54,7 @@ export async function GET(request) {
       shipment.product_code,
       shipment.product_name,
       (shipment.quantity || 0) * (shipment.set_qty || 1),
-      shipment.weight || '',
+      '',
       shipment.memo || ''
     ])
     

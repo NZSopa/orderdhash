@@ -47,43 +47,43 @@ export async function GET(request) {
       const offset = (page - 1) * limit
 
       // 검색 조건 설정
-      let whereClause = ''
+      let whereClause = "WHERE status = 'processing'"
       const params = []
 
       if (search) {
-        whereClause = `
-          AND (s.shipment_no LIKE ? OR s.reference_no LIKE ? OR 
-               s.product_name LIKE ? OR s.consignee_name LIKE ?)
+        whereClause += `
+          AND (shipment_no LIKE ? OR reference_no LIKE ? OR 
+               product_code LIKE ? OR product_name LIKE ?)
         `
         params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`)
       }
 
       if (location !== 'all') {
-        whereClause += ` AND s.shipment_location = ?`
+        whereClause += " AND shipment_location = ?"
         params.push(location)
       }
 
       // 전체 건수 조회
       const countStmt = db.prepare(`
         SELECT COUNT(*) as total
-        FROM shipment s
-        WHERE 1=1 ${whereClause}
+        FROM shipment
+        ${whereClause}
       `)
       const { total } = countStmt.get(...params)
 
       // 출하 목록 조회
       const stmt = db.prepare(`
-        SELECT s.*
-        FROM shipment s
-        WHERE 1=1 ${whereClause}
-        ORDER BY s.created_at DESC
+        SELECT *
+        FROM shipment
+        ${whereClause}
+        ORDER BY created_at DESC
         LIMIT ? OFFSET ?
       `)
       
-      const shipments = stmt.all(...params, limit, offset)
+      const data = stmt.all(...params, limit, offset)
 
       return NextResponse.json({
-        data: shipments,
+        data,
         total,
         page,
         limit
@@ -187,6 +187,66 @@ export async function POST(request) {
       console.error('Error creating shipments:', error)
       return NextResponse.json(
         { error: '출하 등록 중 오류가 발생했습니다.' },
+        { status: 500 }
+      )
+    }
+  })
+}
+
+export async function PUT(request) {
+  return await withDB(async (db) => {
+    try {
+      const { id, field, value } = await request.json()
+
+      if (!id || !field || value === undefined) {
+        return NextResponse.json(
+          { error: '필수 정보가 누락되었습니다.' },
+          { status: 400 }
+        )
+      }
+
+      // 트랜잭션 시작
+      db.prepare('BEGIN TRANSACTION').run()
+
+      try {
+        let updateData = {}
+        if (field === 'status' && value === 'shipped') {
+          updateData = {
+            [field]: value,
+            shipment_at: new Date().toISOString()
+          }
+        } else {
+          updateData = { [field]: value }
+        }
+
+        const setClause = Object.keys(updateData)
+          .map(key => `${key} = ?`)
+          .join(', ')
+
+        const stmt = db.prepare(`
+          UPDATE shipment
+          SET ${setClause}
+          WHERE id = ?
+        `)
+
+        stmt.run(...Object.values(updateData), id)
+
+        // 트랜잭션 커밋
+        db.prepare('COMMIT').run()
+
+        // 업데이트된 데이터 조회
+        const updatedShipment = db.prepare('SELECT * FROM shipment WHERE id = ?').get(id)
+
+        return NextResponse.json(updatedShipment)
+      } catch (error) {
+        // 오류 발생 시 롤백
+        db.prepare('ROLLBACK').run()
+        throw error
+      }
+    } catch (error) {
+      console.error('Error updating shipment:', error)
+      return NextResponse.json(
+        { error: '출하 정보 수정 중 오류가 발생했습니다.' },
         { status: 500 }
       )
     }
