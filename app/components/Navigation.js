@@ -7,9 +7,6 @@ export default function Navigation() {
   const pathname = usePathname()
 
   const isActive = (path) => {
-    if (path === '/shipment/completed') {
-      return pathname === path ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-    }
     return pathname.startsWith(path) ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'
   }
 

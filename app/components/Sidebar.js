@@ -12,10 +12,9 @@ const menuItems = [
     icon: FaShoppingCart,
     items: [
       { name: '주문 목록', href: '/orders/list' },
+      { name: '주문 분석', href: '/analysis/orders' },
       { name: '출하 목록', href: '/shipment/list' },
       { name: '출하 완료', href: '/shipment/completed' },
-      
-
     ],
   },
   {
@@ -54,6 +53,7 @@ const menuItems = [
       { name: '주문 업로드', href: '/orders/bulk' },
     ],
   },
+
 ]
 
 export default function Sidebar() {
