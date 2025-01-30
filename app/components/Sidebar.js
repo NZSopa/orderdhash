@@ -12,7 +12,6 @@ const menuItems = [
     icon: FaShoppingCart,
     items: [
       { name: '주문 목록', href: '/orders/list' },
-      { name: '주문 분석', href: '/analysis/orders' },
       { name: '출하 목록', href: '/shipment/list' },
       { name: '출하 완료', href: '/shipment/completed' },
     ],
@@ -31,6 +30,14 @@ const menuItems = [
       { name: '출품 정보', href: '/codes' },
     ],
   },
+  {
+    name: '정산 관리',
+    icon: FaShoppingCart,
+    items: [
+      { name: '주문 분석', href: '/analysis/orders' },
+    ],
+  },
+
   {
     name: '통계',
     icon: FaChartLine,

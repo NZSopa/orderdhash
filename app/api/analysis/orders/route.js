@@ -42,7 +42,7 @@ export async function GET(request) {
     const query = `
       SELECT 
         order_date,
-        order_number,
+        order_id,
         sales_site,
         product_code,
         product_name,
@@ -53,15 +53,15 @@ export async function GET(request) {
         settlement_month
       FROM order_summary
       ${whereStr}
-      GROUP BY sales_site, product_code, product_name, settlement_month
-      ORDER BY order_date DESC
+      GROUP BY order_id
+      ORDER BY order_date ASC
       LIMIT ? OFFSET ?
     `
 
     // 전체 건수 조회
     const countQuery = `
       SELECT COUNT(*) as total FROM (
-        SELECT DISTINCT sales_site, product_code, product_name, settlement_month
+        SELECT DISTINCT order_id
         FROM order_summary
         ${whereStr}
       ) t

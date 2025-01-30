@@ -206,7 +206,7 @@ export default function InventoryListPage() {
                               <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">{item.nz_stock + item.aus_stock}</td>
                               <td className="px-3 py-4 text-sm text-gray-500">{item.memo || '-'}</td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                {new Date(item.created_at).toLocaleDateString()}
+                                {new Date(item.updated_at).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '-').replace('.', '')}
                               </td>
                             </tr>
                           ))

@@ -17,7 +17,7 @@ export async function GET(request) {
         'WEIGHT', //weight
         'SALES_SITE', //sales_site
         'SETTLEMENT_MONTH', //settlement_month
-        'ORDER_NUMBER', //order_number
+        'ORDER_ID', //order_id
         'SALES_PRICE', //sales_price
         'AMAZON_COMMISSION', //amazon_commission
         'YAHOO_COMMISSION', //yahoo_commission 
@@ -29,7 +29,6 @@ export async function GET(request) {
         'SHIPPING_FEE', //shipping_fee
         'PROFIT', //profit
         'COST_BASIS_MOTH', //cost_basis_month
-        'STATUS', //status
       ],
       data: []  // 빈 데이터 배열
     })

@@ -176,6 +176,63 @@ export default function OrderAnalysisPage() {
       <span className="text-blue-600 ml-1">↓</span>
   }
 
+  // Amazon 템플릿 다운로드
+  const handleAmazonTemplateDownload = async () => {
+    try {
+      const response = await fetch('/api/analysis/orders/amazon/download')
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '다운로드 중 오류가 발생했습니다.')
+      }
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `amazon_order_template.csv`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      toast.success('Amazon 주문 템플릿이 다운로드되었습니다.')
+    } catch (error) {
+      console.error('Error downloading template:', error)
+      toast.error(error.message)
+    }
+  }
+
+  // Amazon 파일 업로드
+  const handleAmazonUpload = async (event) => {
+    try {
+      const file = event.target.files[0]
+      if (!file) return
+      
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      const response = await fetch('/api/analysis/orders/amazon/upload', {
+        method: 'POST',
+        body: formData
+      })
+      
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error || '업로드 중 오류가 발생했습니다.')
+      }
+      
+      toast.success(result.message)
+      fetchOrders()
+    } catch (error) {
+      console.error('Error uploading data:', error)
+      toast.error(error.message)
+    }
+    
+    event.target.value = ''
+  }
+
   return (
     <div className="container max-w-none px-4 h-screen flex flex-col">
       {/* 검색 영역 */}
@@ -204,21 +261,57 @@ export default function OrderAnalysisPage() {
 
           {/* 오른쪽 영역 */}
           <div className="flex flex-col sm:flex-row items-center gap-2">
-            <button
-              onClick={handleDownload}
-              className="w-full sm:w-auto px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-            >
-              데이터 다운로드
-            </button>
-            <label className="w-full sm:w-auto px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 cursor-pointer text-center">
-              데이터 업로드
-              <input
-                type="file"
-                accept=".csv"
-                onChange={handleUpload}
-                className="hidden"
-              />
-            </label>
+            <div className="flex flex-col sm:flex-row items-center gap-2">
+              <select
+                onChange={(e) => {
+                  if (e.target.value === 'amazon_template') {
+                    handleAmazonTemplateDownload()
+                  } else if (e.target.value === 'default_template') {
+                    handleDownload()
+                  }
+                  e.target.value = ''
+                }}
+                className="w-full sm:w-auto px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">템플릿 다운로드</option>
+                <option value="default_template">기본 템플릿</option>
+                <option value="amazon_template">Amazon 템플릿</option>
+              </select>
+
+              <div className="relative">
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      document.getElementById('fileInput').click();
+                    }
+                  }}
+                  className="w-full sm:w-auto px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">데이터 업로드</option>
+                  <option value="default_upload">기본 업로드</option>
+                  <option value="amazon_upload">Amazon 업로드</option>
+                </select>
+                <input
+                  id="fileInput"
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={(event) => {
+                    const selectElement = event.target.previousElementSibling;
+                    const uploadType = selectElement.value;
+                    
+                    if (uploadType === 'amazon_upload') {
+                      handleAmazonUpload(event);
+                    } else if (uploadType === 'default_upload') {
+                      handleUpload(event);
+                    }
+                    
+                    selectElement.value = '';
+                    event.target.value = '';
+                  }}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -277,9 +370,9 @@ export default function OrderAnalysisPage() {
                 </th>
                 <th 
                   className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('order_number')}
+                  onClick={() => handleSort('order_id')}
                 >
-                  주문번호 {renderSortIcon('order_number')}
+                  주문ID {renderSortIcon('order_id')}
                 </th>
                 <th 
                   className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -330,7 +423,7 @@ export default function OrderAnalysisPage() {
                 <tr key={index} className="hover:bg-gray-50">
                   <td className="px-3 py-2 whitespace-nowrap text-sm">{order.sales_site}</td>
                   <td className="px-3 py-2 whitespace-nowrap text-sm">{order.order_date}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm">{order.order_number}</td>
+                  <td className="px-3 py-2 whitespace-nowrap text-sm">{order.order_id}</td>
                   <td className="px-3 py-2 whitespace-nowrap text-sm">{order.product_code}</td>
                   <td className="px-3 py-2 whitespace-normal text-sm">{order.product_name}</td>
                   <td className="px-3 py-2 whitespace-nowrap text-sm">{order.quantity}</td>

@@ -1,11 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getDB } from '@/app/lib/db'
+import { parseDate } from '@/app/lib/date'
 import Papa from 'papaparse'
 
-// 날짜 형식 변환 함수
-function parseDate(dateStr) {
-  if (!dateStr) return null;
-  
   // 이미 YYYY-MM-DD 형식인 경우
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     return dateStr;
@@ -87,7 +84,7 @@ export async function POST(request) {
         weight,
         sales_site,
         settlement_month,
-        order_number,
+        order_id,
         sales_price,
         amazon_commission,
         yahoo_commission,
