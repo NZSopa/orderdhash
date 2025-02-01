@@ -76,7 +76,7 @@ export default function FileUpload({ onUploadComplete }) {
       console.log('Uploading files:', files.map(f => ({ name: f.name, size: f.size })))
       console.log('Order type:', orderType)
 
-      const response = await fetch('/api/orders/process', {
+      const response = await fetch('/api/orders/upload', {
         method: 'POST',
         headers: {
           'Accept': 'application/json',

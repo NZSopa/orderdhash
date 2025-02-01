@@ -59,18 +59,32 @@ export async function processOrders(files, orderType, db) {
 
         // product_master에서 추가 정보 조회
         let productInfo = null
+        let unitPrice = null
         if (salesInfo) {
           productInfo = db.prepare(`
             SELECT product_name, shipping_from
             FROM product_master
             WHERE product_code = ?
           `).get(salesInfo.product_code)
+
+          // 주문 날짜의 연-월 추출
+          const orderDate = parseDate(order['orderDate'])
+          if (orderDate) {
+            const yearMonth = orderDate.substring(0, 7) // YYYY-MM 형식 추출
+            
+            // product_unit_prices에서 해당 월의 가격 조회
+            unitPrice = db.prepare(`
+              SELECT price
+              FROM product_unit_prices
+              WHERE product_code = ? AND year_month = ?
+            `).get(salesInfo.product_code, yearMonth)
+          }
         }
 
         validOrders.push({
           reference_no: order['reference No.'],
           sku: order['sku'],
-          order_date: parseDate(order['payments-date']),
+          order_date: parseDate(order['orderDate']),
           original_product_name: order['originalProductName'],
           quantity: parseInt(order['quantity-purchased']) || 1,
           consignee_name: order['Consignees NAME'],
@@ -87,7 +101,8 @@ export async function processOrders(files, orderType, db) {
           site_url: salesInfo?.site_url || null,
           shipment_location: productInfo?.shipping_from || null,
           set_qty: salesInfo?.set_qty || null,
-          weight: salesInfo?.weight || null
+          weight: salesInfo?.weight || null,
+          unit_value: unitPrice?.price || null
         })
       }
     }
@@ -100,13 +115,15 @@ export async function processOrders(files, orderType, db) {
           quantity, consignee_name, kana,
           postal_code, address, phone_number, created_at,
           product_code, product_name, sales_price, sales_site,
-          site_url, shipment_location, set_qty, weight, status
+          site_url, shipment_location, set_qty, weight, status,
+          unit_value
         ) VALUES (
           @reference_no, @sku, @order_date, @original_product_name,
           @quantity, @consignee_name, @kana,
           @postal_code, @address, @phone_number, @created_at,
           @product_code, @product_name, @sales_price, @sales_site,
-          @site_url, @shipment_location, @set_qty, @weight, 'ordered'
+          @site_url, @shipment_location, @set_qty, @weight, 'ordered',
+          @unit_value
         )
       `)
 
@@ -162,7 +179,7 @@ async function processAmazonOrder(fileContent, db) {
               
               return {
                 'reference No.': order['order-id'] || '',
-                'order-date': parseDate(order['payments-date']),
+                'orderDate': order['payments-date'],
                 'sku': order['sku'] || '',
                 'product-name': productName,
                 'originalProductName': order['product-name'] || '',
@@ -236,7 +253,7 @@ async function processYahooOrder(orderContent, productContent, db) {
                   orderDict[order.Id] = {
                     ShipName: order.ShipName || '',
                     ShipNameKana: order.ShipNameKana || '',
-                    order_date: order.OrderTime || '',
+                    orderDate: order.OrderTime || '',
                     ShipZipCode: order.ShipZipCode || '',
                     ShipPrefecture: order.ShipPrefecture || '',
                     ShipCity: order.ShipCity || '',
@@ -255,6 +272,7 @@ async function processYahooOrder(orderContent, productContent, db) {
                   return {
                     'reference No.': product.Id || '',
                     'sku': product.ItemId || '',
+                    'orderDate': order.orderDate || '',
                     'product-name': productName,
                     'originalProductName': product.Title || '',
                     'quantity-purchased': product.Quantity || '1',
