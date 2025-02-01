@@ -198,7 +198,7 @@ export default function InventoryListPage() {
                           </tr>
                         ) : (
                           inventoryItems.map((item) => (
-                            <tr key={item.product_code} className="hover:bg-blue-50 transition-colors">
+                            <tr key={`${item.id}`} className="hover:bg-blue-50 transition-colors">
                               <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{item.product_code}</td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">{item.product_name}</td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">{item.nz_stock}</td>

@@ -420,7 +420,7 @@ export default function OrderAnalysisPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {getSortedOrders().map((order, index) => (
-                <tr key={index} className="hover:bg-gray-50">
+                <tr key={`${order.id}-${order.order_id}-${order.product_code}-${order.order_date}`} className="hover:bg-gray-50">
                   <td className="px-3 py-2 whitespace-nowrap text-sm">{order.sales_site}</td>
                   <td className="px-3 py-2 whitespace-nowrap text-sm">{order.order_date}</td>
                   <td className="px-3 py-2 whitespace-nowrap text-sm">{order.order_id}</td>

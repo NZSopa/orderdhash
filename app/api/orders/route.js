@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getDB, withDB } from '@/app/lib/db'
-
+import { parseDate } from '@/app/lib/date'
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -52,11 +52,11 @@ export async function GET(request) {
     const orders = db.prepare(`
       SELECT 
         o.id, o.reference_no, o.sku, o.original_product_name,
-        o.quantity,  o.consignee_name, o.kana,
+        o.quantity, o.consignee_name, o.kana,
         o.postal_code, o.address, o.phone_number, o.created_at,
         o.status, o.updated_at, o.product_code, o.product_name,
         o.sales_price, o.sales_site, o.site_url, o.shipment_location,
-        o.set_qty, o.weight,
+        o.set_qty, o.weight, o.shipment_batch,
         CASE 
           WHEN o.shipment_location LIKE 'aus%' THEN i.aus_stock
           ELSE i.nz_stock
@@ -64,7 +64,7 @@ export async function GET(request) {
       FROM orders o
       LEFT JOIN inventory i ON o.product_code = i.product_code
       ${whereClause}
-      ORDER BY o.created_at DESC
+      ORDER BY o.created_at DESC, o.shipment_batch
       LIMIT ? OFFSET ?
     `).all(...params, limit, offset)
 
@@ -97,6 +97,7 @@ export async function POST(request) {
         const stmt = db.prepare(`
           INSERT INTO orders (
             reference_no,
+            order_date,
             sales_site,
             shipment_location,
             sku,
@@ -118,6 +119,7 @@ export async function POST(request) {
         for (const order of orders) {
           stmt.run([
             order.reference_no,
+            parseDate(order.order_date),
             order.sales_site,
             order.shipment_location,
             order.sku,

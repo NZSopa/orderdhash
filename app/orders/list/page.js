@@ -1,11 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import Pagination from '@/app/components/Pagination'
 import SearchBox from '@/app/components/SearchBox'
-import HumanCheckModal from '@/app/components/orders/HumanCheckModal'
 import { cn } from '@/app/lib/utils'
 import { FaExclamationTriangle } from 'react-icons/fa'
 
@@ -25,6 +24,10 @@ export default function OrderListPage() {
   const [pendingOrders, setPendingOrders] = useState([])
   const [sortField, setSortField] = useState(null)
   const [sortOrder, setSortOrder] = useState('asc')
+  const [showSplitModal, setShowSplitModal] = useState(false)
+  const [showMergeModal, setShowMergeModal] = useState(false)
+  const [splitQuantities, setSplitQuantities] = useState({})
+  const [currentBatchId, setCurrentBatchId] = useState(null)
   
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -108,23 +111,127 @@ export default function OrderListPage() {
   // 체크박스 처리
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedOrders(orders.filter(order => order.status !== 'sh').map(order => order.reference_no))
+      setSelectedOrders(orders.filter(
+        order => order.status === 'ordered'
+      ).map(order => order.id))
     } else {
       setSelectedOrders([])
     }
   }
 
-  const handleSelect = (reference_no) => {
-    const order = orders.find(o => o.reference_no === reference_no)
-    if (order.status === 'sh') return
+  const handleSelect = (id) => {
+    const order = orders.find(o => o.id === id)
+    if (order.status !== 'ordered') return
 
     setSelectedOrders(prev => {
-      if (prev.includes(reference_no)) {
-        return prev.filter(id => id !== reference_no)
+      if (prev.includes(id)) {
+        return prev.filter(orderId => orderId !== id)
       } else {
-        return [...prev, reference_no]
+        return [...prev, id]
       }
     })
+  }
+
+  // 분할 배송 처리
+  const handleSplitShipment = async (quantities) => {
+    try {
+      setIsProcessing(true)
+      const batchId = new Date().getTime().toString()
+
+      const selectedOrderData = orders
+        .filter(order => selectedOrders.includes(order.id))
+        .map(order => {
+          const originalBatch = order.shipment_batch // 기존 배치 ID 저장
+          return {
+            ...order,
+            quantity: quantities[order.id] || order.quantity,
+            shipment_batch: batchId,
+            original_batch: originalBatch, // 기존 배치 ID 전달
+            remaining_quantity: order.quantity - (quantities[order.id] || order.quantity)
+          }
+        })
+
+      const response = await fetch('/api/shipment/split', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(selectedOrderData)
+      })
+
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error)
+      }
+
+      toast.success('분할 배송 처리가 완료되었습니다.')
+      setShowSplitModal(false)
+      setSplitQuantities({})
+      setSelectedOrders([])
+      await fetchOrders()
+    } catch (error) {
+      console.error('Error processing split shipment:', error)
+      toast.error(error.message || '분할 배송 처리 중 오류가 발생했습니다.')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  // 합배송 처리 전 유효성 검사
+  const validateMergeSelection = (selectedOrderIds) => {
+    const selectedOrders = selectedOrderIds.map(id => orders.find(o => o.id === id))
+    const hasBatchedOrder = selectedOrders.some(order => order.shipment_batch !== null)
+    
+    if (hasBatchedOrder) {
+      toast.error('이미 합배송된 주문이 포함되어 있습니다. 기존 합배송을 취소한 후 다시 시도해주세요.')
+      return false
+    }
+    
+    return true
+  }
+
+  // 합배송 처리
+  const handleMergeShipment = async () => {
+    if (!validateMergeSelection(selectedOrders)) {
+      return
+    }
+
+    try {
+      setIsProcessing(true)
+      const batchId = new Date().getTime().toString()
+
+      const selectedOrderData = orders
+        .filter(order => selectedOrders.includes(order.id))
+        .map(order => ({
+          ...order,
+          shipment_batch: batchId
+        }))
+
+      const response = await fetch('/api/shipment/merge', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(selectedOrderData)
+      })
+
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error)
+      }
+
+      toast.success('합배송 처리가 완료되었습니다.')
+      setShowMergeModal(false)
+      setSelectedOrders([])
+      await fetchOrders()
+    } catch (error) {
+      console.error('Error processing merge shipment:', error)
+      toast.error(error.message || '합배송 처리 중 오류가 발생했습니다.')
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   // 출하 처리
@@ -138,7 +245,7 @@ export default function OrderListPage() {
     try {
       // 선택된 주문의 전체 데이터 가져오기
       const selectedOrderData = orders.filter(order => 
-        selectedOrders.includes(order.reference_no)
+        selectedOrders.includes(order.id)
       ).map(order => ({
         ...order,
         set_qty: parseInt(order.set_qty) || 1,  // set_qty가 없으면 기본값 1
@@ -173,8 +280,6 @@ export default function OrderListPage() {
     }
   }
 
- 
-
   // 경고 사항 체크
   const checkWarnings = async (orders) => {
     try {
@@ -189,7 +294,7 @@ export default function OrderListPage() {
       // 1차: 데이터 수집
       for (const order of orders) {
         // status가 NULL이거나 비어있는 주문만 처리
-        if (order.status) continue;
+        if (order.status !== 'ordered') continue;
 
         // 중복 체크 - 주문번호
         if (!referenceGroups.has(order.reference_no)) {
@@ -271,26 +376,47 @@ export default function OrderListPage() {
   }
 
   // 출고지 수정 처리
-  const handleLocationChange = async (reference_no, newLocation) => {
+  const handleLocationChange = async (reference_no, newLocation, group) => {
     try {
-      const response = await fetch('/api/orders', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          reference_no,
-          shipment_location: newLocation
-        })
-      })
+      // 합배송된 주문인 경우
+      if (group && group.length > 1) {
+        const promises = group.map(order => 
+          fetch('/api/orders', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              reference_no: order.reference_no,
+              shipment_location: newLocation
+            })
+          })
+        )
 
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error)
+        await Promise.all(promises)
+        toast.success('합배송 주문의 출고지가 모두 수정되었습니다.')
+      } else {
+        // 단일 주문인 경우
+        const response = await fetch('/api/orders', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            reference_no,
+            shipment_location: newLocation
+          })
+        })
+
+        const result = await response.json()
+        
+        if (!response.ok) {
+          throw new Error(result.error)
+        }
+
+        toast.success('출고지가 수정되었습니다.')
       }
 
-      toast.success('출고지가 수정되었습니다.')
       setEditingOrder(null)
       fetchOrders()
     } catch (error) {
@@ -315,7 +441,7 @@ export default function OrderListPage() {
   }
 
   // 정렬된 데이터 반환
-  const getSortedOrders = () => {
+  const getSortedOrders = useCallback(() => {
     if (!sortField) return orders
 
     return [...orders].sort((a, b) => {
@@ -326,10 +452,10 @@ export default function OrderListPage() {
       if (aValue === null) aValue = ''
       if (bValue === null) bValue = ''
 
-      // 숫자 필드 처리
+      // 숫자 필드 특별 처리
       if (['quantity', 'sales_price', 'current_stock'].includes(sortField)) {
-        aValue = parseFloat(aValue) || 0
-        bValue = parseFloat(bValue) || 0
+        aValue = Number(aValue) || 0
+        bValue = Number(bValue) || 0
       }
 
       if (sortOrder === 'asc') {
@@ -338,16 +464,16 @@ export default function OrderListPage() {
         return aValue < bValue ? 1 : -1
       }
     })
-  }
+  }, [orders, sortField, sortOrder])
 
   // 정렬 아이콘 렌더링
   const renderSortIcon = (field) => {
-    if (sortField !== field) {
-      return <span className="text-gray-400 ml-1">↕</span>
-    }
-    return sortOrder === 'asc' ? 
-      <span className="text-blue-600 ml-1">↑</span> : 
-      <span className="text-blue-600 ml-1">↓</span>
+    if (sortField !== field) return null
+    return (
+      <span className="ml-1">
+        {sortOrder === 'asc' ? '↑' : '↓'}
+      </span>
+    )
   }
 
   const handleDownloadKana = async () => {
@@ -438,6 +564,340 @@ export default function OrderListPage() {
     }
   }
 
+  // 분할 배송 모달
+  const SplitShipmentModal = () => {
+    if (!showSplitModal) return null
+
+    const selectedOrdersData = orders.filter(order => selectedOrders.includes(order.id))
+    const hasBatchedOrders = selectedOrdersData.some(order => order.shipment_batch)
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 max-w-2xl w-full">
+          <h2 className="text-xl font-bold mb-4">
+            {hasBatchedOrders ? '합배송 분할 처리' : '분할 배송 처리'}
+          </h2>
+          <div className="space-y-4">
+            {selectedOrdersData.map(order => (
+              <div key={order.id} className="flex items-center gap-4">
+                <div className="flex-1">
+                  <p className="font-medium">{order.reference_no}</p>
+                  <p className="text-sm text-gray-600">{order.product_name}</p>
+                  {order.shipment_batch && (
+                    <p className="text-xs text-blue-600">합배송 그룹: {order.shipment_batch}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max={order.quantity}
+                    value={splitQuantities[order.id] || order.quantity}
+                    onChange={(e) => setSplitQuantities(prev => ({
+                      ...prev,
+                      [order.id]: parseInt(e.target.value)
+                    }))}
+                    className="w-20 px-2 py-1 border rounded"
+                  />
+                  <span className="text-sm text-gray-600">/ {order.quantity}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              onClick={() => setShowSplitModal(false)}
+              className="px-4 py-2 text-gray-600 hover:text-gray-800"
+            >
+              취소
+            </button>
+            <button
+              onClick={() => handleSplitShipment(splitQuantities)}
+              disabled={isProcessing}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400"
+            >
+              {isProcessing ? '처리 중...' : '분할 배송 처리'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 주문 데이터를 배치별로 그룹화하는 함수 수정
+  const getGroupedOrders = useCallback(() => {
+    const sortedOrders = getSortedOrders()
+    const groupedOrders = []
+    const batchGroups = new Map()
+
+    // 배치별로 주문 그룹화
+    sortedOrders.forEach(order => {
+      if (order.shipment_batch) {
+        const batchId = order.shipment_batch
+        if (!batchGroups.has(batchId)) {
+          batchGroups.set(batchId, [])
+        }
+        batchGroups.get(batchId).push(order)
+      } else {
+        groupedOrders.push([order])
+      }
+    })
+
+    // 그룹화된 배치 주문 추가 (2개 이상인 경우만)
+    batchGroups.forEach((orders, batchId) => {
+      if (orders.length > 1) {
+        // 동일한 배치 내에서 created_at으로 정렬
+        const sortedBatchOrders = orders.sort((a, b) => 
+          new Date(a.created_at) - new Date(b.created_at)
+        )
+        groupedOrders.push(sortedBatchOrders)
+      } else {
+        // 단일 주문은 개별 처리
+        groupedOrders.push([orders[0]])
+      }
+    })
+
+    return groupedOrders
+  }, [getSortedOrders])
+
+  // 합배송 취소 처리
+  const handleCancelMerge = async (orders) => {
+    try {
+      setIsProcessing(true)
+      const response = await fetch('/api/shipment/merge/cancel', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orders)
+      })
+
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error)
+      }
+
+      toast.success('합배송이 취소되었습니다.')
+      setSelectedOrders([])
+      await fetchOrders()
+    } catch (error) {
+      console.error('Error canceling merge shipment:', error)
+      toast.error(error.message || '합배송 취소 중 오류가 발생했습니다.')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  // 테이블 행 렌더링 함수 수정
+  const renderOrderRow = (order, isFirstInGroup, isLastInGroup, totalInGroup, group) => {
+    const isBatched = order.shipment_batch !== null && totalInGroup > 1
+    const mergeInfo = isBatched ? group.map(o => ({
+      reference_no: o.reference_no,
+      consignee_name: o.consignee_name,
+      product_name: o.product_name,
+      quantity: o.quantity
+    })) : null
+
+    return (
+      <tr 
+        key={`${order.id}-${order.reference_no}`} 
+        id={`order-${order.reference_no}`}
+        className={cn(
+          "hover:bg-gray-50 transition-colors duration-150",
+          highlightedOrder === order.reference_no && "bg-yellow-50",
+          isBatched && [
+            "relative border-blue-400",
+            isFirstInGroup && "border-t-2",
+            !isFirstInGroup && "border-t",
+            isLastInGroup && "border-b-2",
+            !isLastInGroup && "border-b",
+            "border-l-2 border-r-2"
+          ]
+        )}
+      >
+        <td className="px-3 py-4 whitespace-nowrap">
+          <input
+            type="checkbox"
+            checked={selectedOrders.includes(order.id)}
+            onChange={() => handleSelect(order.id)}
+            disabled={order.status !== 'ordered'}
+            className={cn(
+              "rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0",
+              order.status !== 'ordered' && "opacity-50 cursor-not-allowed"
+            )}
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap">
+          {isBatched && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-1">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                  합배송 ({totalInGroup}건)
+                </span>
+                {isFirstInGroup && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleCancelMerge(group)
+                    }}
+                    className="text-xs text-red-600 hover:text-red-800 ml-1"
+                  >
+                    취소
+                  </button>
+                )}
+              </div>
+              {isFirstInGroup && (
+                <div className="text-xs text-gray-500 ml-1">
+                  {mergeInfo.map((info, idx) => (
+                    <div key={info.reference_no} className={cn(
+                      "flex justify-between",
+                      idx !== 0 && "mt-1 pt-1 border-t border-gray-200"
+                    )}>
+                      <span className="font-medium">{info.reference_no}</span>
+                      <span>{info.consignee_name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          <div className={cn(
+            "text-sm",
+            isBatched && "font-medium text-blue-900 mt-2"
+          )}>
+            {order.sales_site}
+          </div>
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm">
+          {editingOrder === order.reference_no ? (
+            <div className="flex items-center gap-2">
+              <select
+                className="border rounded px-2 py-1 text-sm"
+                defaultValue={order.shipment_location}
+                onChange={(e) => handleLocationChange(order.reference_no, e.target.value, group)}
+                onBlur={() => setEditingOrder(null)}
+              >
+                <option value="aus_kn">aus-kn</option>
+                <option value="nz_bis">nz-bis</option>
+              </select>
+            </div>
+          ) : (
+            <button
+              onClick={() => setEditingOrder(order.reference_no)}
+              className="hover:text-blue-600"
+            >
+              {order.shipment_location}
+            </button>
+          )}
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm">
+          <span className={order.current_stock < order.quantity ? 'text-red-600 font-medium' : ''}>
+            {order.current_stock || 0}
+          </span>
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm">{order.reference_no}</td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm">{order.sku}</td>
+        <td className="px-3 py-4 whitespace-normal text-sm">{order.original_product_name}</td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm">{order.consignee_name}</td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm">
+          {editingKana === order.reference_no ? (
+            <input
+              type="text"
+              className="border rounded px-2 py-1 text-sm w-full"
+              defaultValue={order.kana || ''}
+              onBlur={(e) => handleKanaChange(order.reference_no, e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleKanaChange(order.reference_no, e.target.value)
+                } else if (e.key === 'Escape') {
+                  setEditingKana(null)
+                }
+              }}
+              autoFocus
+            />
+          ) : (
+            <button
+              onClick={() => setEditingKana(order.reference_no)}
+              className="hover:text-blue-600 text-left w-full"
+            >
+              {order.kana || ''}
+            </button>
+          )}
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm">{order.quantity}</td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm">{order.sales_price}</td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm">
+          <span className={`px-2 py-1 text-xs rounded-full ${
+            order.status !== 'ordered' 
+              ? 'bg-green-100 text-green-800' 
+              : 'bg-yellow-100 text-yellow-800'
+          }`}>
+            {order.status === 'shipped' ? '출하완료' : 
+            order.status === 'ordered' ? '주문접수' : 
+            order.status === 'preparing' ? '배송준비중' : 
+            order.status === 'dispatched' ? '출하완료' : 
+            order.status === 'delivered' ? '배송완료' : 
+            order.status === 'canceled' ? '주문취소' : '대기중'}
+          </span>
+        </td>
+      </tr>
+    )
+  }
+
+  // 합배송 모달 컴포넌트 수정
+  const MergeShipmentModal = () => {
+    if (!showMergeModal) return null
+
+    const selectedOrdersData = orders.filter(order => selectedOrders.includes(order.id))
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 shadow-xl">
+          <h2 className="text-xl font-bold mb-4 text-gray-900">합배송 처리</h2>
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+            {selectedOrdersData.map(order => (
+              <div key={order.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">{order.reference_no}</p>
+                    <p className="text-sm text-gray-600 mt-1">{order.product_name}</p>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      수취인: {order.consignee_name}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-gray-900">
+                      수량: {order.quantity}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      출고지: {order.shipment_location}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 flex justify-end gap-3">
+            <button
+              onClick={() => setShowMergeModal(false)}
+              className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleMergeShipment}
+              disabled={isProcessing}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            >
+              {isProcessing ? '처리 중...' : '합배송 처리'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="container max-w-none px-4">
       {/* 경고 섹션 */}
@@ -451,11 +911,11 @@ export default function OrderListPage() {
             </h3>
             <div className="mt-2 space-y-2">
               {warnings.duplicates.map((duplicate, index) => (
-                <div key={index} className="text-sm text-yellow-700">
+                <div key={`${duplicate.type}-${index}`} className="text-sm text-yellow-700">
                   {duplicate.type === 'reference_no' ? '주문번호' : '수취인'} 중복: {duplicate.value} ({duplicate.items.length}건)
                   <div className="ml-4 text-xs text-gray-600">
                     {duplicate.items.map(item => (
-                      <div key={item.reference_no}>
+                      <div key={`${item.id}-${item.reference_no}`}>
                         <button
                           onClick={() => handleOrderClick(item.reference_no)}
                           className="text-blue-600 hover:underline"
@@ -568,31 +1028,28 @@ export default function OrderListPage() {
           </div>
         </div>
 
-        <div className="flex justify-end items-center">
-          <div className="flex items-center gap-2">
+        <div className="flex justify-end items-center gap-2">
+          <button
+            onClick={() => setShowSplitModal(true)}
+            disabled={selectedOrders.length === 0}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400"
+          >
+            분할 배송
+          </button>
+          <button
+            onClick={() => setShowMergeModal(true)}
+            disabled={selectedOrders.length < 2}
+            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-gray-400"
+          >
+            합배송
+          </button>
           <button
             onClick={handleShipment}
             disabled={isProcessing || selectedOrders.length === 0}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400"
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400"
           >
             {isProcessing ? '처리 중...' : '출하 처리'}
           </button>
-            <button
-              onClick={handleDownloadKana}
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            >
-              Kana 다운로드
-            </button>
-            <label className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 cursor-pointer">
-              Kana 업로드
-              <input
-                type="file"
-                accept=".csv"
-                onChange={handleUploadKana}
-                className="hidden"
-              />
-            </label>
-          </div>
         </div>
       </div>
 
@@ -677,96 +1134,18 @@ export default function OrderListPage() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {getSortedOrders().map((order) => (
-              <tr 
-                key={order.reference_no} 
-                id={`order-${order.reference_no}`}
-                className={cn(
-                  "hover:bg-gray-50",
-                  highlightedOrder === order.reference_no && "bg-yellow-50"
+            {getGroupedOrders().map((group, groupIndex) => (
+              <React.Fragment key={`group-${groupIndex}-${group[0]?.shipment_batch || 'single'}`}>
+                {group.map((order, orderIndex) => 
+                  renderOrderRow(
+                    order,
+                    orderIndex === 0,
+                    orderIndex === group.length - 1,
+                    group.length,
+                    group
+                  )
                 )}
-              >
-                <td className="px-3 py-4 whitespace-nowrap">
-                  <input
-                    type="checkbox"
-                    checked={selectedOrders.includes(order.reference_no)}
-                    onChange={() => handleSelect(order.reference_no)}
-                    disabled={order.status === 'sh'}
-                    className={cn(
-                      "rounded border-gray-300",
-                      order.status === 'sh' && "opacity-50 cursor-not-allowed"
-                    )}
-                  />
-                </td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm">{order.sales_site}</td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm">
-                  {editingOrder === order.reference_no ? (
-                    <div className="flex items-center gap-2">
-                      <select
-                        className="border rounded px-2 py-1 text-sm"
-                        defaultValue={order.shipment_location}
-                        onChange={(e) => handleLocationChange(order.reference_no, e.target.value)}
-                        onBlur={() => setEditingOrder(null)}
-                      >
-                        <option value="aus_kn">aus-kn</option>
-                        <option value="nz_bis">nz-bis</option>
-                      </select>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setEditingOrder(order.reference_no)}
-                      className="hover:text-blue-600"
-                    >
-                      {order.shipment_location}
-                    </button>
-                  )}
-                </td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm">
-                  <span className={order.current_stock < order.quantity ? 'text-red-600 font-medium' : ''}>
-                    {order.current_stock || 0}
-                  </span>
-                </td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm">{order.reference_no}</td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm">{order.sku}</td>
-                <td className="px-3 py-4 whitespace-normal text-sm">{order.original_product_name}</td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm">{order.consignee_name}</td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm">
-                  {editingKana === order.reference_no ? (
-                    <input
-                      type="text"
-                      className="border rounded px-2 py-1 text-sm w-full"
-                      defaultValue={order.kana || ''}
-                      onBlur={(e) => handleKanaChange(order.reference_no, e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleKanaChange(order.reference_no, e.target.value)
-                        } else if (e.key === 'Escape') {
-                          setEditingKana(null)
-                        }
-                      }}
-                      autoFocus
-                    />
-                  ) : (
-                    <button
-                      onClick={() => setEditingKana(order.reference_no)}
-                      className="hover:text-blue-600 text-left w-full"
-                    >
-                      {order.kana || ''}
-                    </button>
-                  )}
-                </td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm">{order.quantity}</td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm">{order.sales_price}</td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm">
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    order.status === 'sh' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {order.status === 'sh' ? '출하완료' : '대기중'}
-                  </span>
-                </td>
-              </tr>
+              </React.Fragment>
             ))}
           </tbody>
         </table>
@@ -786,6 +1165,11 @@ export default function OrderListPage() {
         />
       </div>
 
+      {/* 분할 배송 모달 */}
+      <SplitShipmentModal />
+
+      {/* 합배송 모달 */}
+      <MergeShipmentModal />
 
     </div>
   )

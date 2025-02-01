@@ -1,6 +1,7 @@
 import Papa from 'papaparse'
 import iconv from 'iconv-lite'
 import { getProductNameByCode } from './db'
+import { parseDate } from './date'
 
 export async function processOrders(files, orderType, db) {
   try {
@@ -69,6 +70,7 @@ export async function processOrders(files, orderType, db) {
         validOrders.push({
           reference_no: order['reference No.'],
           sku: order['sku'],
+          order_date: parseDate(order['payments-date']),
           original_product_name: order['originalProductName'],
           quantity: parseInt(order['quantity-purchased']) || 1,
           consignee_name: order['Consignees NAME'],
@@ -94,17 +96,17 @@ export async function processOrders(files, orderType, db) {
     if (validOrders.length > 0) {
       const stmt = db.prepare(`
         INSERT INTO orders (
-          reference_no, sku, original_product_name,
+          reference_no, sku, order_date, original_product_name,
           quantity, consignee_name, kana,
           postal_code, address, phone_number, created_at,
           product_code, product_name, sales_price, sales_site,
-          site_url, shipment_location, set_qty, weight
+          site_url, shipment_location, set_qty, weight, status
         ) VALUES (
-          @reference_no, @sku, @original_product_name,
+          @reference_no, @sku, @order_date, @original_product_name,
           @quantity, @consignee_name, @kana,
           @postal_code, @address, @phone_number, @created_at,
           @product_code, @product_name, @sales_price, @sales_site,
-          @site_url, @shipment_location, @set_qty, @weight
+          @site_url, @shipment_location, @set_qty, @weight, 'ordered'
         )
       `)
 
@@ -160,6 +162,7 @@ async function processAmazonOrder(fileContent, db) {
               
               return {
                 'reference No.': order['order-id'] || '',
+                'order-date': parseDate(order['payments-date']),
                 'sku': order['sku'] || '',
                 'product-name': productName,
                 'originalProductName': order['product-name'] || '',
@@ -233,6 +236,7 @@ async function processYahooOrder(orderContent, productContent, db) {
                   orderDict[order.Id] = {
                     ShipName: order.ShipName || '',
                     ShipNameKana: order.ShipNameKana || '',
+                    order_date: order.OrderTime || '',
                     ShipZipCode: order.ShipZipCode || '',
                     ShipPrefecture: order.ShipPrefecture || '',
                     ShipCity: order.ShipCity || '',

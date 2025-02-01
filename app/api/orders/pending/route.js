@@ -10,7 +10,7 @@ export async function GET() {
           DATE(substr(created_at, 1, 10)) as date,
           COUNT(*) as count
         FROM orders
-        WHERE status IS NULL OR status NOT LIKE '%sh%'
+        WHERE status IS NULL OR status='ordered'
         GROUP BY DATE(substr(created_at, 1, 10))
         ORDER BY date DESC
         LIMIT 30
