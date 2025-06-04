@@ -185,6 +185,7 @@ export default function InventoryListPage() {
                           {renderSortableHeader('nz_stock', 'NZ 재고')}
                           {renderSortableHeader('aus_stock', 'AUS 재고')}
                           {renderSortableHeader('total_stock', '총 재고')}
+                          <th className="px-3 py-4 text-left text-sm font-semibold text-gray-900">원가</th>
                           {renderSortableHeader('memo', '메모')}
                           {renderSortableHeader('created_at', '등록일')}
                         </tr>
@@ -192,7 +193,7 @@ export default function InventoryListPage() {
                       <tbody className="divide-y divide-gray-200 bg-white">
                         {inventoryItems.length === 0 ? (
                           <tr>
-                            <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
+                            <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
                               등록된 재고 정보가 없습니다.
                             </td>
                           </tr>
@@ -204,6 +205,7 @@ export default function InventoryListPage() {
                               <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">{item.nz_stock}</td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">{item.aus_stock}</td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">{item.nz_stock + item.aus_stock}</td>
+                              <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900">{item.unit_price !== undefined && item.unit_price !== null ? item.unit_price.toLocaleString() : '-'}</td>
                               <td className="px-3 py-4 text-sm text-gray-500">{item.memo || '-'}</td>
                               <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                                 {new Date(item.updated_at).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '-').replace('.', '')}

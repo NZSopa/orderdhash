@@ -26,17 +26,24 @@ export async function GET(request) {
     // 전체 아이템 수 조회
     const totalCount = db.prepare('SELECT COUNT(*) as count FROM inventory').get().count
 
-    // 페이지네이션된 데이터 조회
+    // 페이지네이션된 데이터 조회 (최신 원가 조인)
     const inventory = db.prepare(`
       SELECT 
-        product_code,
-        product_name,
-        nz_stock,
-        aus_stock,
-        memo,
-        created_at,
-        updated_at
-      FROM inventory
+        i.product_code,
+        i.product_name,
+        i.nz_stock,
+        i.aus_stock,
+        i.memo,
+        i.created_at,
+        i.updated_at,
+        (
+          SELECT p.price
+          FROM product_unit_prices p
+          WHERE p.product_code = i.product_code
+          ORDER BY p.year_month DESC
+          LIMIT 1
+        ) AS unit_price
+      FROM inventory i
       ORDER BY ${orderByClause}
       LIMIT ? OFFSET ?
     `).all(pageSize, offset)

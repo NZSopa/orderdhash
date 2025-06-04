@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { FaFileUpload, FaSearch, FaEdit, FaTrash, FaSort, FaSortUp, FaSortDown, FaExclamationTriangle, FaPlus, FaFileExcel, FaDownload } from 'react-icons/fa'
+import React, { useState, useEffect, useCallback } from 'react'
+import { FaFileUpload, FaSearch, FaEdit, FaTrash, FaSort, FaSortUp, FaSortDown, FaExclamationTriangle, FaPlus, FaFileExcel, FaDownload, FaCloudDownloadAlt } from 'react-icons/fa'
 import * as XLSX from 'xlsx'
 
 const EXCEL_TEMPLATE = [
@@ -30,12 +30,13 @@ export default function UnitPricesPage() {
     memo: ''
   })
   const [isUploading, setIsUploading] = useState(false)
+  const [sheetData, setSheetData] = useState([])
+  const [sheetLoading, setSheetLoading] = useState(false)
+  const [sheetError, setSheetError] = useState(null)
+  const [sheetSaveStatus, setSheetSaveStatus] = useState('')
+  const [sheetSaveStats, setSheetSaveStats] = useState(null)
 
-  useEffect(() => {
-    loadPrices()
-  }, [searchQuery, currentPage, itemsPerPage, sortField, sortOrder])
-
-  const loadPrices = async () => {
+  const loadPrices = useCallback(async () => {
     try {
       const queryParams = new URLSearchParams({
         page: currentPage,
@@ -58,7 +59,11 @@ export default function UnitPricesPage() {
     } catch (error) {
       console.error('Error loading prices:', error)
     }
-  }
+  }, [searchQuery, currentPage, itemsPerPage, sortField, sortOrder])
+
+  useEffect(() => {
+    loadPrices()
+  }, [loadPrices])
 
   const handleSearch = (e) => {
     setSearchQuery(e.target.value)
@@ -348,6 +353,49 @@ export default function UnitPricesPage() {
     }
   }
 
+  const handleFetchSheet = async () => {
+    setSheetLoading(true)
+    setSheetError(null)
+    try {
+      const res = await fetch('/api/unit-prices/sheet')
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || '불러오기 실패')
+      setSheetData(json.data)
+    } catch (err) {
+      setSheetError(err.message)
+      setSheetData([])
+    } finally {
+      setSheetLoading(false)
+    }
+  }
+
+  const handleSaveSheetToDB = async () => {
+    setSheetSaveStatus('저장 중...')
+    setSheetSaveStats(null)
+    try {
+      const res = await fetch('/api/unit-prices/sheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: sheetData }),
+      })
+      const result = await res.json()
+      if (result.success) {
+        setSheetSaveStatus('저장 완료!')
+        setSheetSaveStats({
+          total: result.total,
+          successCount: result.successCount,
+          failCount: result.failCount,
+        })
+        setSheetData([])
+        await loadPrices()
+      } else {
+        setSheetSaveStatus(result.error || '저장 실패')
+      }
+    } catch (e) {
+      setSheetSaveStatus('저장 중 오류 발생')
+    }
+  }
+
   return (
     <div className="space-y-6 p-8 max-w-[1600px] mx-auto">
       <div className="bg-white rounded-xl shadow-sm">
@@ -367,10 +415,20 @@ export default function UnitPricesPage() {
                   placeholder="제품 코드로 검색..."
                   value={searchQuery}
                   onChange={handleSearch}
-                  className="pl-10 pr-4 py-2 border rounded-lg w-64 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="pl-10 pr-4 py-2 border rounded-lg w-96 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 <FaSearch className="absolute left-3 top-3 text-gray-400" />
               </div>
+             
+             
+            </div>
+          </div>
+        </div>
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex justify-between items-center">
+ 
+            <div className="flex items-center gap-3">
+
               <button
                 onClick={handleTemplateDownload}
                 className="btn bg-indigo-500 hover:bg-indigo-600 text-white gap-2"
@@ -390,6 +448,13 @@ export default function UnitPricesPage() {
               >
                 <FaFileExcel /> 엑셀 업로드
               </label>
+              <button
+                className="btn bg-yellow-500 hover:bg-yellow-600 text-white gap-2"
+                onClick={handleFetchSheet}
+                disabled={sheetLoading}
+              >
+                {sheetLoading ? '불러오는 중...' : (<><FaCloudDownloadAlt className="w-4 h-4" /> 구글 시트에서 불러오기</>)}
+              </button>
               <button
                 className="btn bg-blue-500 hover:bg-blue-600 text-white gap-2"
                 onClick={() => {
@@ -433,6 +498,63 @@ export default function UnitPricesPage() {
             <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalItems)}</span>개
           </span>
         </div>
+
+        {/* 구글 시트 미리보기 및 저장 결과 */}
+        {(sheetData.length > 0 || sheetSaveStatus || sheetSaveStats) && (
+          <div className="px-6 pt-4">
+            {sheetData.length > 0 && (
+              <>
+                <div className="mb-2 text-sm text-gray-700">구글 시트에서 불러온 데이터 미리보기</div>
+                <div className="flex gap-3 mb-2">
+                  <button
+                    className="btn bg-orange-500 hover:bg-orange-600 text-white gap-2"
+                    onClick={handleSaveSheetToDB}
+                    disabled={!!sheetSaveStatus && sheetSaveStatus.includes('저장 중')}
+                  >
+                    {sheetSaveStatus && sheetSaveStatus.includes('저장 중') ? '저장 중...' : 'DB에 저장'}
+                  </button>
+                </div>
+                <div className="overflow-x-auto border rounded mt-2">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        {Object.keys(sheetData[0]).map((header) => (
+                          <th key={header} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{header}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {sheetData.map((row, idx) => (
+                        <tr key={idx}>
+                          {Object.values(row).map((value, i) => (
+                            <td key={i} className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{value}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+            {/* 저장 결과 메시지 및 통계 */}
+            {sheetSaveStatus && (
+              <div className={`mt-2 flex items-center text-sm ${sheetSaveStatus.includes('완료') ? 'text-green-700' : 'text-red-700'}`}>{sheetSaveStatus}</div>
+            )}
+            {sheetSaveStats && (
+              <div className="bg-gray-50 border rounded p-3 text-sm flex gap-6 mt-2">
+                <div>총 처리: <span className="font-bold">{sheetSaveStats.total}</span></div>
+                <div>성공: <span className="font-bold text-green-600">{sheetSaveStats.successCount}</span></div>
+                <div>실패: <span className="font-bold text-red-600">{sheetSaveStats.failCount}</span></div>
+              </div>
+            )}
+            {sheetSaveStats && sheetSaveStats.errors && (
+              <details className="mt-2 text-xs text-red-500">
+                <summary>실패 상세 보기</summary>
+                <pre>{JSON.stringify(sheetSaveStats.errors, null, 2)}</pre>
+              </details>
+            )}
+          </div>
+        )}
 
         {/* 테이블 */}
         <div className="overflow-x-auto">

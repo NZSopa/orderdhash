@@ -1,7 +1,7 @@
 'use client'
 
 import { FaFileUpload } from 'react-icons/fa'
-import PriceFileUpload from '@/app/components/prices/PriceFileUpload'
+import PriceFileUpload from '@/app/components/sales_prices/PriceFileUpload'
 import Papa from 'papaparse'
 import { useState } from 'react'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/app/components/ui/table'

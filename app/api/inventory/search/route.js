@@ -41,20 +41,27 @@ export async function GET(request) {
       WHERE product_code LIKE ? OR product_name LIKE ?
     `).get(`%${query}%`, `%${query}%`).count
 
-    // 페이지네이션된 검색 결과 조회
+    // 페이지네이션된 검색 결과 조회 (최신 원가 조인)
     const inventory = db.prepare(`
       SELECT 
-        product_code,
-        product_name,
-        nz_stock,
-        aus_stock,
-        memo,
-        created_at,
-        updated_at
-      FROM inventory
+        i.product_code,
+        i.product_name,
+        i.nz_stock,
+        i.aus_stock,
+        i.memo,
+        i.created_at,
+        i.updated_at,
+        (
+          SELECT p.price
+          FROM product_unit_prices p
+          WHERE p.product_code = i.product_code
+          ORDER BY p.year_month DESC
+          LIMIT 1
+        ) AS unit_price
+      FROM inventory i
       WHERE 
-        product_code LIKE ? OR 
-        product_name LIKE ?
+        i.product_code LIKE ? OR 
+        i.product_name LIKE ?
       ORDER BY ${orderByClause}
       LIMIT ? OFFSET ?
     `).all(`%${query}%`, `%${query}%`, pageSize, offset)
