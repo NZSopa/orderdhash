@@ -5,6 +5,15 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import Pagination from '@/app/components/Pagination'
 import SearchBox from '@/app/components/SearchBox'
+import SplitShipmentModal from '@/app/components/SplitShipmentModal'
+import MergeShipmentModal from '@/app/components/MergeShipmentModal'
+import { 
+  updateOrderLocation, 
+  processSplitShipment,
+  processMergeShipment,
+  validateMergeSelection,
+  cancelMergeShipment
+} from '@/app/lib/orderUtils'
 
 export default function ShipmentListPage() {
   const [shipments, setShipments] = useState([])
@@ -18,6 +27,10 @@ export default function ShipmentListPage() {
   const [sortField, setSortField] = useState(null)
   const [sortOrder, setSortOrder] = useState('asc')
   const [editingLocation, setEditingLocation] = useState(null)
+  const [showSplitModal, setShowSplitModal] = useState(false)
+  const [showMergeModal, setShowMergeModal] = useState(false)
+  const [splitQuantities, setSplitQuantities] = useState({})
+  const [isProcessing, setIsProcessing] = useState(false)
   
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -62,30 +75,30 @@ export default function ShipmentListPage() {
   // 출하 위치 변경
   const handleLocationChange = async (shipmentId, newLocation) => {
     try {
-      const response = await fetch(`/api/shipment/${shipmentId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
+      const shipment = shipments.find(s => s.id === shipmentId)
+      if (!shipment) return
+
+      // 합배송된 주문인 경우 그룹 정보 포함
+      const group = shipment.shipment_batch 
+        ? shipments.filter(s => s.shipment_batch === shipment.shipment_batch)
+        : null
+
+      await updateOrderLocation({
+        id: shipmentId,
+        reference_no: shipment.reference_no,
+        newLocation,
+        group,
+        onSuccess: (message) => {
+          toast.success(message)
+          setEditingLocation(null)
+          fetchShipments()
         },
-        body: JSON.stringify({
-          field: 'shipment_location',
-          value: newLocation
-        })
+        onError: (error) => {
+          toast.error(error)
+        }
       })
-
-      const result = await response.json()
-      
-      if (result.error) {
-        toast.error(result.error)
-        return
-      }
-
-      toast.success('출하 위치가 수정되었습니다.')
-      setEditingLocation(null)
-      fetchShipments()
     } catch (error) {
-      console.error('Error updating location:', error)
-      toast.error('출하 위치 수정 중 오류가 발생했습니다.')
+      console.error('Error in handleLocationChange:', error)
     }
   }
 
@@ -134,30 +147,51 @@ export default function ShipmentListPage() {
   // 편집 저장
   const handleSaveEdit = async (shipment) => {
     try {
-      const response = await fetch(`/api/shipment/${shipment.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          field: editingField,
-          value: editValue
+      // 합배송된 주문인 경우 모든 주문에 대해 처리
+      if (shipment.shipment_batch && editingField === 'shipment_no') {
+        const batchOrders = shipments.filter(s => s.shipment_batch === shipment.shipment_batch)
+        const shipmentIds = batchOrders.map(s => s.id)
+        
+        const response = await fetch('/api/shipment', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            shipmentIds,
+            shipment_no: editValue
+          })
         })
-      })
 
-      const result = await response.json()
-      
-      if (result.error) {
-        toast.error(result.error)
-        return
+        const result = await response.json()
+        if (result.error) throw new Error(result.error)
+
+        toast.success('수정이 완료되었습니다.')
+      } else {
+        // 단일 주문 처리
+        const response = await fetch('/api/shipment', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: shipment.id,
+            field: editingField,
+            value: editValue
+          })
+        })
+
+        const result = await response.json()
+        if (result.error) throw new Error(result.error)
+
+        toast.success('수정이 완료되었습니다.')
       }
 
-      toast.success('수정이 완료되었습니다.')
       fetchShipments()
       handleCancelEdit()
     } catch (error) {
       console.error('Error updating shipment:', error)
-      toast.error('수정 중 오류가 발생했습니다.')
+      toast.error(error.message || '수정 중 오류가 발생했습니다.')
     }
   }
 
@@ -181,35 +215,84 @@ export default function ShipmentListPage() {
     })
   }
 
-  // 출하번호 생성
+  // 출하번호 일괄 생성
   const handleGenerateShipmentNumbers = async () => {
-    if (!selectedShipments.length) {
-      toast.error('출하번호를 생성할 출하를 선택해주세요.')
-      return
-    }
-
-    if (location === 'all') {
-      toast.error('출하 위치를 먼저 선택해주세요.')
-      return
-    }
-
     try {
-      const response = await fetch('/api/shipment/generate-number', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          shipmentIds: selectedShipments,
-          location: location
-        })
+      // 선택된 주문들을 배치 그룹별로 정리
+      const batchGroups = new Map()
+      const nonBatchedShipments = []
+
+      selectedShipments.forEach(shipmentId => {
+        const shipment = shipments.find(s => s.id === shipmentId)
+        if (!shipment) return
+
+        if (shipment.shipment_batch) {
+          if (!batchGroups.has(shipment.shipment_batch)) {
+            batchGroups.set(shipment.shipment_batch, [])
+          }
+          batchGroups.get(shipment.shipment_batch).push(shipment)
+        } else {
+          nonBatchedShipments.push(shipment)
+        }
       })
-      
-      const data = await response.json()
-      
-      if (data.error) {
-        toast.error(data.error)
-        return
+
+      // 각 배치 그룹별로 하나의 출하번호 생성 및 적용
+      for (const [batchId, batchShipments] of batchGroups) {
+        const shipmentIds = batchShipments.map(s => s.id)
+        // 그룹의 첫 번째 주문으로 출하번호 생성
+        const response = await fetch('/api/shipment/generate-number', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            shipmentIds: [batchShipments[0].id], // 첫 번째 주문의 ID만 전달
+            location: batchShipments[0].shipment_location
+          })
+        })
+        
+        const data = await response.json()
+        if (data.error) throw new Error(data.error)
+
+        // 생성된 하나의 출하번호를 그룹의 모든 주문에 적용
+        await fetch('/api/shipment', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            shipmentIds, // 모든 주문 ID
+            shipment_no: data.results[0].shipmentNo // 첫 번째 주문의 출하번호 사용
+          })
+        })
+      }
+
+      // 비배치 주문들은 개별 출하번호 생성
+      for (const shipment of nonBatchedShipments) {
+        const response = await fetch('/api/shipment/generate-number', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            shipmentIds: [shipment.id],
+            location: shipment.shipment_location
+          })
+        })
+        
+        const data = await response.json()
+        if (data.error) throw new Error(data.error)
+
+        await fetch('/api/shipment', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: shipment.id,
+            shipment_no: data.results[0].shipmentNo
+          })
+        })
       }
 
       toast.success('출하번호가 생성되었습니다.')
@@ -217,7 +300,7 @@ export default function ShipmentListPage() {
       fetchShipments()
     } catch (error) {
       console.error('Error generating shipment numbers:', error)
-      toast.error('출하번호 생성 중 오류가 발생했습니다.')
+      toast.error(error.message || '출하번호 생성 중 오류가 발생했습니다.')
     }
   }
 
@@ -239,7 +322,7 @@ export default function ShipmentListPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          shipmentIds: selectedShipments
+          orderIds: selectedShipments
         })
       })
 
@@ -343,6 +426,39 @@ export default function ShipmentListPage() {
       toast.error(error.message)
     }
   }
+
+  const handleDownloadTrackingNumber = async () => {
+    try {
+      if (location === 'all') {
+        toast.error('출하 위치를 먼저 선택해주세요.')
+        return
+      }
+
+      const response = await fetch(`/api/shipment/download-tracking-number?date=${new Date().toISOString().split('T')[0]}&location=${location}`)
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '다운로드 중 오류가 발생했습니다.')
+      }
+      
+      // Blob으로 변환하여 다운로드
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `shipments_${location}_${new Date().toISOString().split('T')[0]}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      toast.success('출하 목록이 다운로드되었습니다.')
+    } catch (error) {
+      console.error('Error downloading shipment data:', error)
+      toast.error(error.message)
+    }
+  }
+
 
   // 출하 목록 업로드
   const handleUploadShipment = async (event) => {
@@ -461,11 +577,93 @@ export default function ShipmentListPage() {
     }
   }
 
+  // 분할 배송 처리
+  const handleSplitShipment = async (quantities) => {
+    try {
+      setIsProcessing(true)
+      await processSplitShipment({
+        orders: shipments,
+        selectedOrders: selectedShipments,
+        quantities,
+        onSuccess: (message) => {
+          toast.success(message)
+          setShowSplitModal(false)
+          setSplitQuantities({})
+          setSelectedShipments([])
+          fetchShipments()
+        },
+        onError: (error) => {
+          toast.error(error)
+        }
+      })
+    } catch (error) {
+      console.error('Error in handleSplitShipment:', error)
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  // 합배송 처리
+  const handleMergeShipment = async () => {
+    if (!validateMergeSelection(shipments, selectedShipments)) {
+      toast.error('이미 합배송된 주문이 포함되어 있습니다. 기존 합배송을 취소한 후 다시 시도해주세요.')
+      return
+    }
+
+    try {
+      setIsProcessing(true)
+      await processMergeShipment({
+        orders: shipments,
+        selectedOrders: selectedShipments,
+        onSuccess: (message) => {
+          toast.success(message)
+          setShowMergeModal(false)
+          setSelectedShipments([])
+          fetchShipments()
+        },
+        onError: (error) => {
+          toast.error(error)
+        }
+      })
+    } catch (error) {
+      console.error('Error in handleMergeShipment:', error)
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  // 합배송 취소 처리
+  const handleCancelMerge = async (orders) => {
+    try {
+      setIsProcessing(true)
+      // 선택된 주문의 배치 ID로 같은 배치의 모든 주문 찾기
+      const batchId = orders[0].shipment_batch
+      const allBatchOrders = shipments.filter(s => s.shipment_batch === batchId)
+
+      await cancelMergeShipment({
+        orders: allBatchOrders,
+        onSuccess: (message) => {
+          toast.success(message)
+          setSelectedShipments([])
+          fetchShipments()
+        },
+        onError: (error) => {
+          toast.error(error)
+        }
+      })
+    } catch (error) {
+      console.error('Error in handleCancelMerge:', error)
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
   return (
     <div className="container mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">출하 목록</h1>
         <div className="flex gap-4 items-center">
+        <h2 className="text-lg font-bold">출하 위치</h2>
         <select
             value={location}
             onChange={(e) => router.push(`/shipment/list?page=1&limit=${limit}&search=${search}&location=${e.target.value}`)}
@@ -514,6 +712,12 @@ export default function ShipmentListPage() {
           >
             출하목록 다운로드
           </button>
+          <button
+            onClick={handleDownloadShipment}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+          >
+            운송장번호 입력목록 다운로드
+          </button>          
           {location === 'nz_bis' && (
             <button
               onClick={handleDownloadSSS}
@@ -690,10 +894,10 @@ export default function ShipmentListPage() {
                   {(shipment.quantity || 0).toLocaleString()}
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm text-right">
-                  {(shipment.unit_value || 0).toLocaleString()}円
+                  {(shipment.sales_price || 0).toLocaleString()}円
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm text-right">
-                  {((shipment.unit_value || 0) * (shipment.quantity || 0)).toLocaleString()}円
+                  {((shipment.sales_price || 0) * (shipment.quantity || 0)).toLocaleString()}円
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm">
                   {editingId === shipment.id && editingField === 'status' ? (
@@ -729,8 +933,21 @@ export default function ShipmentListPage() {
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-blue-100 text-blue-800'
                       }`}>
-                        {shipment.status === 'shipped' ? '출하완료' : '출하준비중'}
+                        {shipment.status === 'dispatched' ? '출하완료' : '출하준비중'}
                       </span>
+                    </div>
+                  )}
+                  {shipment.shipment_batch && (
+                    <div className="mt-2 flex flex-col items-start gap-1">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                        합배송 그룹: {shipment.shipment_batch}
+                      </span>
+                      <button
+                        onClick={() => handleCancelMerge([shipment])}
+                        className="text-red-600 hover:text-red-800 text-xs"
+                      >
+                        합배송 취소
+                      </button>
                     </div>
                   )}
                 </td>
@@ -756,6 +973,45 @@ export default function ShipmentListPage() {
           onPageChange={(page) => router.push(`/shipment/list?page=${page}&limit=${limit}&search=${search}&location=${location}`)}
         />
       </div>
+
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex gap-4 items-center">
+          {selectedShipments.length > 0 && (
+            <>
+              <button
+                onClick={() => setShowSplitModal(true)}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              >
+                분할 배송
+              </button>
+              <button
+                onClick={() => setShowMergeModal(true)}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              >
+                합배송
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <SplitShipmentModal
+        isOpen={showSplitModal}
+        onClose={() => setShowSplitModal(false)}
+        selectedOrders={selectedShipments}
+        orders={shipments}
+        onConfirm={handleSplitShipment}
+        isProcessing={isProcessing}
+      />
+
+      <MergeShipmentModal
+        isOpen={showMergeModal}
+        onClose={() => setShowMergeModal(false)}
+        selectedOrders={selectedShipments}
+        orders={shipments}
+        onConfirm={handleMergeShipment}
+        isProcessing={isProcessing}
+      />
     </div>
   )
 } 

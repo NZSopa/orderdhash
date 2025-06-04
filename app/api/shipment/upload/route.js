@@ -51,13 +51,13 @@ export async function POST(request) {
 
       try {
         const stmt = db.prepare(`
-          UPDATE shipment 
+          UPDATE orders 
           SET 
             weight = ?,
             memo = ?,
             shipment_at = ?,
-            status = 'completed',
-            updated_at = datetime('now')
+            status = 'dispatched',
+            shipment_at = datetime('now')
           WHERE shipment_no = ?
         `)
 

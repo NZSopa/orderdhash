@@ -9,7 +9,7 @@ import FileUpload from '../components/shipment/FileUpload'
 import ExcelDownload from '../components/shipment/ExcelDownload'
 
 export default function ShipmentPage() {
-  const [shipments, setShipments] = useState([])
+  const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
   
@@ -18,10 +18,10 @@ export default function ShipmentPage() {
   
   const page = parseInt(searchParams.get('page')) || 1
   const search = searchParams.get('search') || ''
-  const status = searchParams.get('status') || ''
+  const status = searchParams.get('status') || 'preparing'
   const limit = 20
 
-  const fetchShipments = useCallback(async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       setLoading(true)
       const response = await fetch(
@@ -33,10 +33,10 @@ export default function ShipmentPage() {
         throw new Error(data.error)
       }
       
-      setShipments(data.data)
+      setOrders(data.data)
       setTotal(data.total)
     } catch (error) {
-      console.error('Error fetching shipments:', error)
+      console.error('Error fetching orders:', error)
       toast.error('출하 목록을 불러오는 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
@@ -44,8 +44,8 @@ export default function ShipmentPage() {
   }, [page, search, status])
 
   useEffect(() => {
-    fetchShipments()
-  }, [fetchShipments])
+    fetchOrders()
+  }, [fetchOrders])
 
   const handleStatusFilter = (newStatus) => {
     router.push(`/shipment?status=${newStatus}&search=${search}`)
@@ -61,20 +61,12 @@ export default function ShipmentPage() {
         <div className="flex gap-4">
           <div className="flex gap-2">
             <button
-              onClick={() => handleStatusFilter('')}
+              onClick={() => handleStatusFilter('preparing')}
               className={`px-4 py-2 rounded-lg border ${
-                status === '' ? 'bg-blue-500 text-white' : 'hover:bg-gray-50'
+                status === 'preparing' ? 'bg-blue-500 text-white' : 'hover:bg-gray-50'
               }`}
             >
-              전체
-            </button>
-            <button
-              onClick={() => handleStatusFilter('processing')}
-              className={`px-4 py-2 rounded-lg border ${
-                status === 'processing' ? 'bg-blue-500 text-white' : 'hover:bg-gray-50'
-              }`}
-            >
-              처리중
+              배송준비중
             </button>
             <button
               onClick={() => handleStatusFilter('shipped')}
@@ -89,7 +81,7 @@ export default function ShipmentPage() {
             defaultValue={search} 
             onSearch={(value) => router.push(`/shipment?status=${status}&search=${value}`)} 
           />
-          <FileUpload onUploadComplete={fetchShipments} />
+          <FileUpload onUploadComplete={fetchOrders} />
         </div>
       </div>
 
@@ -98,19 +90,19 @@ export default function ShipmentPage() {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                출하번호
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 주문번호
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 상품코드
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                제품명
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 수취인
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                출하지
+                출고지
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 수량
@@ -118,27 +110,33 @@ export default function ShipmentPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 상태
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                출하일시
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {shipments.map((shipment) => (
-              <tr key={shipment.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">{shipment.shipment_no}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{shipment.order_id}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{shipment.sku}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{shipment.consignee_name}</td>
+            {orders.map((order) => (
+              <tr key={order.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap">{order.reference_no}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{order.sku}</td>
+                <td className="px-6 py-4 whitespace-normal">{order.product_name}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{order.consignee_name}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {shipment.shipment_location === 'aus' ? 'AUS' : 'NZ'}
+                  {order.shipment_location}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">{shipment.quantity}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{order.quantity}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 text-xs rounded-full ${
-                    shipment.status === 'shipped'
+                    order.status === 'shipped'
                       ? 'bg-green-100 text-green-800'
                       : 'bg-yellow-100 text-yellow-800'
                   }`}>
-                    {shipment.status === 'shipped' ? '출하완료' : '처리중'}
+                    {order.status === 'shipped' ? '출하완료' : '배송준비중'}
                   </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {order.shipment_at ? new Date(order.shipment_at).toLocaleString('ko-KR') : '-'}
                 </td>
               </tr>
             ))}
@@ -146,7 +144,7 @@ export default function ShipmentPage() {
         </table>
       </div>
 
-      {!loading && shipments.length === 0 && (
+      {!loading && orders.length === 0 && (
         <div className="text-center py-8 text-gray-500">
           출하 내역이 없습니다.
         </div>

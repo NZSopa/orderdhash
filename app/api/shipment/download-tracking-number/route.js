@@ -48,9 +48,7 @@ export async function GET(request) {
     // 데이터 준비
 
     const headerData = [
-      ['출하날짜', ''], // 첫 번째 행: 출하날짜 입력란
-      [], // 빈 행
-      ['주문번호','출하번호', '상품코드', '상품명', '상품수', '무게', '메모'] // 헤더 행
+      ['주문번호','출하번호', '상품코드', '상품명', '상품수', '무게', '운송장번호'] // 헤더 행
     ]
     
     // 데이터 행 추가
@@ -61,7 +59,7 @@ export async function GET(request) {
       shipment.product_name,
       (shipment.quantity || 0) * (shipment.set_qty || 1),
       '',
-      shipment.memo || ''
+      shipment.tracking_number || ''
     ])
     
     // 모든 데이터 합치기
@@ -70,9 +68,6 @@ export async function GET(request) {
     // 워크시트 생성
     const ws = XLSX.utils.aoa_to_sheet(allData)
     
-    // 첫 번째 셀(출하날짜) 스타일 지정
-    ws['A1'] = { t: 's', v: '출하날짜' }
-    ws['B1'] = { t: 's', v:  formattedDate }
     
     // 워크시트를 워크북에 추가
     XLSX.utils.book_append_sheet(wb, ws, 'Shipments')
@@ -84,13 +79,13 @@ export async function GET(request) {
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename=shipments_${location}_${today}.xlsx`
+        'Content-Disposition': `attachment; filename=tracking_number_${location}_${today}.xlsx`
       }
     })
   } catch (error) {
     console.error('Error downloading shipment data:', error)
     return NextResponse.json(
-      { error: '출하 데이터 다운로드 중 오류가 발생했습니다.' },
+      { error: '운송장 번호 입력 데이터 다운로드 중 오류가 발생했습니다.' },
       { status: 500 }
     )
   }

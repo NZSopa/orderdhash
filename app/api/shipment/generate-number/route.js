@@ -19,7 +19,7 @@ export async function POST(request) {
       // 해당 날짜의 마지막 번호 조회 (선택된 주문 제외)
       const lastShipment = db.prepare(`
         SELECT shipment_no
-        FROM shipment
+        FROM orders
         WHERE shipment_no LIKE ? 
         AND shipment_location = ?
         AND id NOT IN (${shipmentIds.map(() => '?').join(',')})
@@ -42,7 +42,7 @@ export async function POST(request) {
       try {
         // 1. 선택된 출하건들의 출하번호 초기화
         const clearShipmentNoStmt = db.prepare(`
-          UPDATE shipment
+          UPDATE orders
           SET shipment_no = NULL
           WHERE id IN (${shipmentIds.map(() => '?').join(',')})
         `)
@@ -51,7 +51,7 @@ export async function POST(request) {
         // 2. product_name으로 정렬된 출하 정보 조회
         const shipments = db.prepare(`
           SELECT id, product_name
-          FROM shipment
+          FROM orders
           WHERE id IN (${shipmentIds.map(() => '?').join(',')})
           ORDER BY product_name COLLATE NOCASE ASC
         `).all(...shipmentIds)
@@ -59,7 +59,7 @@ export async function POST(request) {
         // 3. 새로운 출하번호 생성 및 업데이트
         const prefix = location === 'aus_kn' ? 'HS' : 'SKA'
         const updateStmt = db.prepare(`
-          UPDATE shipment
+          UPDATE orders
           SET shipment_no = ?
           WHERE id = ?
         `)

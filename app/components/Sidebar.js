@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { FaBox, FaClipboardList, FaStore, FaShoppingCart, FaBars, FaChevronRight, FaChevronDown, FaChartLine, FaCog } from 'react-icons/fa'
+import { FaBox, FaClipboardList, FaShopify,FaStore, FaShoppingCart, FaBars, FaChevronRight, FaChevronDown, FaChartLine, FaCog } from 'react-icons/fa'
 import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '../lib/utils'
@@ -14,6 +14,8 @@ const menuItems = [
       { name: '주문 목록', href: '/orders/list' },
       { name: '출하 목록', href: '/shipment/list' },
       { name: '출하 완료', href: '/shipment/completed' },
+      { name: '발송 완료', href: '/shipment/shipped' },
+      { name: '주문 업로드', href: '/orders/bulk' },
     ],
   },
   {
@@ -57,10 +59,16 @@ const menuItems = [
       { name: '판매 가격', href: '/prices' },
       { name: '원가 관리', href: '/unit-prices' },
       { name: '재고 업로드', href: '/inventory' },
-      { name: '주문 업로드', href: '/orders/bulk' },
     ],
   },
-
+  {
+    name: '상품등록',
+    icon: FaShopify,
+    items: [
+      { name: '제품등록', href: '/listing/' },
+      
+    ],
+  },
 ]
 
 export default function Sidebar() {

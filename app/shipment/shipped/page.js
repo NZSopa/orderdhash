@@ -27,7 +27,7 @@ export default function CompletedShipmentListPage() {
     try {
       setLoading(true)
       const response = await fetch(
-        `/api/shipment/completed?page=${page}&limit=${limit}&location=${location}&startDate=${startDate}&endDate=${endDate}`
+        `/api/shipment/shipped?page=${page}&limit=${limit}&location=${location}&startDate=${startDate}&endDate=${endDate}`
       )
       const data = await response.json()
       
@@ -39,7 +39,7 @@ export default function CompletedShipmentListPage() {
       setTotal(data.total)
     } catch (error) {
       console.error('Error fetching completed shipments:', error)
-      toast.error('출하 완료 목록을 불러오는 중 오류가 발생했습니다.')
+      toast.error('발송송 완료 목록을 불러오는 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
@@ -50,18 +50,18 @@ export default function CompletedShipmentListPage() {
   }, [fetchShipments])
 
   // 출하 완료 취소 처리
-  const handleCancelComplete = async () => {
+  const handleCancelshipped = async () => {
     if (!selectedShipments.length) {
-      toast.error('취소할 출하를 선택해주세요.')
+      toast.error('발송송 출하를 선택해주세요.')
       return
     }
 
-    if (!confirm('선택한 출하의 완료 상태를 취소하시겠습니까?')) {
+    if (!confirm('선택한 주문의 발송 완료 상태를 취소하시겠습니까?')) {
       return
     }
 
     try {
-      const response = await fetch('/api/shipment/cancel-complete', {
+      const response = await fetch('/api/shipment/cancel-shipped', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -78,12 +78,12 @@ export default function CompletedShipmentListPage() {
         return
       }
 
-      toast.success('출하 완료가 취소되었습니다.')
+      toast.success('발송송 완료가 취소되었습니다.')
       setSelectedShipments([])
       fetchShipments()
     } catch (error) {
-      console.error('Error canceling completed shipments:', error)
-      toast.error('출하 완료 취소 중 오류가 발생했습니다.')
+      console.error('Error canceling shipped shipments:', error)
+      toast.error('발송 완료 취소 중 오류가 발생했습니다.')
     }
   }
 
@@ -161,13 +161,13 @@ export default function CompletedShipmentListPage() {
     const params = new URLSearchParams(searchParams.toString())
     params.set(type, value)
     params.set('page', '1')
-    router.push(`/shipment/completed?${params.toString()}`)
+    router.push(`/shipment/shipped?${params.toString()}`)
   }
 
   return (
     <div className="container mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">출하 완료 목록</h1>
+        <h1 className="text-2xl font-bold">발송 완료 목록</h1>
         <div className="flex gap-4 items-center">
           <select
             value={location}
@@ -175,7 +175,7 @@ export default function CompletedShipmentListPage() {
               const params = new URLSearchParams(searchParams.toString())
               params.set('location', e.target.value)
               params.set('page', '1')
-              router.push(`/shipment/completed?${params.toString()}`)
+              router.push(`/shipment/shipped?${params.toString()}`)
             }}
             className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
@@ -189,7 +189,7 @@ export default function CompletedShipmentListPage() {
               const params = new URLSearchParams(searchParams.toString())
               params.set('limit', e.target.value)
               params.set('page', '1')
-              router.push(`/shipment/completed?${params.toString()}`)
+              router.push(`/shipment/shipped?${params.toString()}`)
             }}
             className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
@@ -218,10 +218,10 @@ export default function CompletedShipmentListPage() {
           />
           {selectedShipments.length > 0 && (
             <button
-              onClick={handleCancelComplete}
+              onClick={handleCancelshipped}
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
             >
-              출하 완료 취소
+              발송 완료 취소
             </button>
           )}
         </div>
@@ -342,7 +342,7 @@ export default function CompletedShipmentListPage() {
 
       {!loading && shipments.length === 0 && (
         <div className="text-center py-8 text-gray-500">
-          출하 완료 내역이 없습니다.
+          발송 완료 내역이 없습니다.
         </div>
       )}
 

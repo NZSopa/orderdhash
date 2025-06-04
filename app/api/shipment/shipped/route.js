@@ -12,7 +12,7 @@ export async function GET(request) {
       const endDate = searchParams.get('endDate')
 
       // 검색 조건 설정
-      let whereClause = "WHERE status = 'dispatched'"
+      let whereClause = "WHERE status = 'shipped'"
       const params = []
 
       if (location !== 'all') {
@@ -54,7 +54,7 @@ export async function GET(request) {
     } catch (error) {
       console.error('Error fetching completed shipments:', error)
       return NextResponse.json(
-        { error: '출하 완료 목록을 불러오는 중 오류가 발생했습니다.' },
+        { error: '발송 완료 목록을 불러오는 중 오류가 발생했습니다.' },
         { status: 500 }
       )
     }

@@ -20,23 +20,24 @@ export async function GET(request) {
     // 출하 데이터 조회
     const shipments = db.prepare(`
       SELECT 
-        s.shipment_no,
-        s.consignee_name,
-        s.kana,
-        s.postal_code,
-        s.address,
-        s.phone_number,
-        s.product_name,
-        s.quantity,
-        s.unit_value,
-        s.weight,
-        s.product_code,
-        s.sku
-      FROM shipment s
-      WHERE s.shipment_no IS NOT NULL
-      AND s.status = 'processing'
-      AND s.shipment_location = ?
-      ORDER BY s.shipment_no ASC
+        o.shipment_no,
+        o.consignee_name,
+        o.kana,
+        o.postal_code,
+        o.address,
+        o.phone_number,
+        o.product_name,
+        o.quantity,
+        o.sales_price,
+        o.weight,
+        o.product_code,
+        o.sku,
+        o.set_qty
+      FROM orders o
+      WHERE o.shipment_no IS NOT NULL
+      AND o.status = 'preparing'
+      AND o.shipment_location = ?
+      ORDER BY o.shipment_no ASC
     `).all(location)
 
 
@@ -74,11 +75,11 @@ export async function GET(request) {
       (shipment.unit_value || 0) * (shipment.quantity || 0), // Invoice total value nzd
       1,                              // Number of parcels
       shipment.weight || '',          // WEIGHT (KG)
-      shipment.product_name,          // Item Description 1
+      (shipment.set_qty > 1 ? `${shipment.product_name} ${shipment.set_qty} SETS` : shipment.product_name),          // Item Description 1
       shipment.quantity,              // Item Quantity
-      shipment.unit_value,            // Unit Value(JPY)
-      'NZ',                           // Country of Origin
-      shipment.sku,
+      shipment.sales_price,            // Unit Value(JPY)
+      'NZ',                           // Country of Originc
+      shipment.produt_code,
       '',                             // Item Description 2
       '',                             // Item Quantity
       '',                             // Unit Value

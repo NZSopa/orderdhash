@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+#jsonfile
+/lib/stocknprice-651f42e5eff4.json
+*.json

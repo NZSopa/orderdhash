@@ -26,26 +26,27 @@ export async function GET(request) {
     // 출하 데이터 조회
     const shipments = db.prepare(`
       SELECT 
-        s.shipment_no,
-        s.consignee_name,
-        s.kana,
-        s.postal_code,
-        s.address,
-        s.phone_number,
-        s.product_name,
-        s.quantity,
-        s.weight,
-        s.product_code,
-        s.reference_no,
-        s.sales_url,
-        s.sales_site,
-        s.unit_value,
-        s.sku
-      FROM shipment s
-      WHERE s.shipment_no IS NOT NULL
-      AND s.status = 'processing'
-      AND s.shipment_location = ?
-      ORDER BY s.shipment_no ASC
+        o.shipment_no,
+        o.consignee_name,
+        o.kana,
+        o.postal_code,
+        o.address,
+        o.phone_number,
+        o.product_name,
+        o.quantity,
+        o.weight,
+        o.product_code,
+        o.reference_no,
+        o.site_url,
+        o.sales_site,
+        o.unit_value, 
+        o.sku,
+        o.set_qty
+      FROM orders o
+      WHERE o.shipment_no IS NOT NULL
+      AND o.status = 'preparing'
+      AND o.shipment_location = ?
+      ORDER BY o.shipment_no ASC
     `).all(location)
 
     // 엑셀 워크북 생성
@@ -88,12 +89,12 @@ export async function GET(request) {
       '',                             // USER_DATA
       'JPY',                          // CURRENCY UNIT
       shipment.sku,                   // ITEM_CODE
-      shipment.product_name,          // ITEM_NAME
+      (shipment.set_qty > 1 ? `${shipment.product_name} ${shipment.set_qty} SETS` : shipment.product_name),          // ITEM_NAME
       '',                             // MATERIAL
       shipment.quantity,              // ITEM_COUNT
       shipment.unit_value,            // UNIT_VALUE
       "NZ",
-      shipment.sales_url,              // PURCHASE_URL
+      shipment.site_url,              // PURCHASE_URL
       // SALES_SITE 조건부 처리
       ['NZP', 'SKY', 'ARH'].includes(shipment.sales_site) ? 'Amazon' :
       shipment.sales_site === 'YAH' ? 'Yahoo' : '',

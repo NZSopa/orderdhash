@@ -10,9 +10,12 @@ export async function GET(request) {
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
     const status = searchParams.get('status')
+    const location = searchParams.get('location') || 'all'
 
     let whereClause = 'WHERE 1=1'
     const params = []
+
+    whereClause += ` AND (o.status = 'ordered')`
 
     if (search) {
       whereClause += ` AND (
@@ -34,8 +37,9 @@ export async function GET(request) {
       params.push(startDate, endDate)
     }
 
-    if (status === 'pending') {
-      whereClause += ` AND (o.status IS NULL OR o.status NOT LIKE '%sh%')`
+    if (location !== 'all') {
+      whereClause += ` AND o.shipment_location = ?`
+      params.push(location)
     }
 
     const db = await getDB()
@@ -76,8 +80,11 @@ export async function GET(request) {
     })
 
   } catch (error) {
-    console.error('Error in orders API:', error)
-    return NextResponse.json({ error: '주문 목록을 불러오는 중 오류가 발생했습니다.' }, { status: 500 })
+    console.error('Error fetching orders:', error)
+    return NextResponse.json(
+      { error: '주문 목록을 불러오는 중 오류가 발생했습니다.' },
+      { status: 500 }
+    )
   }
 }
 
@@ -183,9 +190,9 @@ export async function DELETE(req) {
 
 export async function PUT(request) {
   try {
-    const { reference_no, shipment_location, kana } = await request.json()
+    const { id, shipment_location, kana } = await request.json()
     
-    if (!reference_no || (!shipment_location && kana === undefined)) {
+    if (!id || (!shipment_location && kana === undefined)) {
       return NextResponse.json(
         { error: '주문번호와 수정할 정보가 필요합니다.' },
         { status: 400 }
@@ -209,12 +216,12 @@ export async function PUT(request) {
     }
 
     // updateFields.push('updated_at = datetime("now")')
-    params.push(reference_no)
+    params.push(id)
 
     const result = db.prepare(`
       UPDATE orders 
       SET ${updateFields.join(', ')}
-      WHERE reference_no = ?
+      WHERE id = ?
     `).run(params)
 
     if (result.changes === 0) {

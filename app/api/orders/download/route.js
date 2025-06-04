@@ -21,12 +21,12 @@ export async function POST(request) {
 
     // 열 너비 설정
     const colWidths = {
-      A: 15, // reference No.
+      A: 30, // reference No.
       B: 10, // sku
       C: 30, // product-name
       D: 8,  // quantity
-      E: 20, // Consignees NAME
-      F: 15, // Kana
+      E: 40, // Consignees NAME
+      F: 40, // Kana
       G: 10, // ConsigneesPOST
       H: 40, // Consignees Address
       I: 15, // ConsigneesPhonenumber
@@ -71,9 +71,9 @@ export async function GET(request) {
     const orders = db.prepare(`
       SELECT reference_no, consignee_name, kana
       FROM orders
-      WHERE DATE(substr(created_at, 1, 10)) = DATE(?)
+      WHERE status = 'ordered'
       ORDER BY created_at ASC
-    `).all(date)
+    `).all()
 
     // CSV 헤더
     let csv = 'reference_no,consignee_name,kana\n'

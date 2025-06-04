@@ -35,9 +35,9 @@ export async function POST(request) {
 
           // 출하 정보 업데이트
           const updateStmt = db.prepare(`
-            UPDATE shipment 
+            UPDATE orders 
             SET 
-              status = 'shipped',
+              status = 'dispatched',
               tracking_number = ?,
               weight = ?,
               updated_at = CURRENT_TIMESTAMP

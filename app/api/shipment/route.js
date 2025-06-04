@@ -14,12 +14,12 @@ async function checkInventory(db, productCode, location) {
   return inventory ? inventory.quantity : 0
 }
 
-// 중복 주문 확인 함수 - 단순 체크만 수행
-function isDuplicateOrder(db, referenceNo, sku) {
+// 중복 주문 확인 함수
+function isDuplicateOrder(db, referenceNo) {
   const existing = db.prepare(`
-    SELECT id FROM shipment 
-    WHERE reference_no = ? AND sku = ?
-  `).get(referenceNo, sku)
+    SELECT id FROM orders 
+    WHERE reference_no = ? AND status = 'preparing'
+  `).get(referenceNo)
   
   return !!existing
 }
@@ -27,10 +27,10 @@ function isDuplicateOrder(db, referenceNo, sku) {
 // 수취인 중복 확인 함수
 function checkDuplicateConsignee(db, consigneeName) {
   const duplicates = db.prepare(`
-    SELECT order_id 
-    FROM shipment 
+    SELECT id 
+    FROM orders 
     WHERE consignee_name = ? 
-    AND status = 'processing'
+    AND status = 'preparing'
   `).all(consigneeName)
   
   return duplicates.length > 0
@@ -47,13 +47,15 @@ export async function GET(request) {
       const offset = (page - 1) * limit
 
       // 검색 조건 설정
-      let whereClause = "WHERE status = 'processing'"
+      let whereClause = "WHERE status = 'preparing'"
       const params = []
 
       if (search) {
         whereClause += `
-          AND (shipment_no LIKE ? OR reference_no LIKE ? OR 
-               product_code LIKE ? OR product_name LIKE ?)
+          AND (reference_no LIKE ? OR 
+               product_code LIKE ? OR 
+               product_name LIKE ? OR
+               consignee_name LIKE ?)
         `
         params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`)
       }
@@ -66,7 +68,7 @@ export async function GET(request) {
       // 전체 건수 조회
       const countStmt = db.prepare(`
         SELECT COUNT(*) as total
-        FROM shipment
+        FROM orders
         ${whereClause}
       `)
       const { total } = countStmt.get(...params)
@@ -74,7 +76,7 @@ export async function GET(request) {
       // 출하 목록 조회
       const stmt = db.prepare(`
         SELECT *
-        FROM shipment
+        FROM orders
         ${whereClause}
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
@@ -107,76 +109,28 @@ export async function POST(request) {
       db.prepare('BEGIN TRANSACTION').run()
 
       try {
-        const stmt = db.prepare(`
-          INSERT INTO shipment (
-            shipment_location,
-            reference_no,
-            status,
-            sku,
-            product_code,
-            product_name,
-            quantity,
-            unit_value,
-            consignee_name,
-            kana,
-            postal_code,
-            address,
-            sales_site,
-            sales_url,
-            phone_number,
-            set_qty,
-            weight  
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        // 주문 상태를 'preparing'으로 업데이트
+        const updateStmt = db.prepare(`
+          UPDATE orders 
+          SET status = 'preparing',
+              updated_at = datetime('now')
+          WHERE id = ?
         `)
 
-        const insertMany = db.transaction((orders) => {
+        const updateMany = db.transaction((orders) => {
           for (const order of orders) {
-            // 수량 계산
-            const set_qty = order.set_qty || 1
-            const product_name = set_qty > 1 ? `${order.product_name} (${set_qty} SETS)` : order.product_name
-            
-            stmt.run([
-              order.shipment_location,
-              order.reference_no,
-              'processing',
-              order.sku,
-              order.product_code,
-              product_name,
-              order.quantity,
-              order.sales_price || 0,
-              order.consignee_name,
-              order.kana,
-              order.postal_code,
-              order.address,
-              order.sales_site,
-              order.site_url,
-              order.phone_number,
-              order.set_qty || 1,
-              order.weight || null
-            ])
+            updateStmt.run(order.id)
           }
         })
 
-        insertMany(orders)
-
-        // 주문 상태 업데이트
-        const updateOrdersStmt = db.prepare(`
-          UPDATE orders 
-          SET status = CASE 
-            WHEN status IS NULL OR status = '' THEN 'sh'
-            ELSE status || 'sh'
-          END,
-          updated_at = datetime('now')
-          WHERE reference_no IN (${orders.map(() => '?').join(',')})
-        `)
-        updateOrdersStmt.run(orders.map(order => order.reference_no))
+        updateMany(orders)
 
         // 트랜잭션 커밋
         db.prepare('COMMIT').run()
 
         return NextResponse.json({ 
           success: true,
-          message: `${orders.length}건의 출하가 등록되었습니다.`
+          message: `${orders.length}건의 주문이 출하 준비 상태로 변경되었습니다.`
         })
       } catch (error) {
         // 오류 발생 시 롤백
@@ -184,9 +138,9 @@ export async function POST(request) {
         throw error
       }
     } catch (error) {
-      console.error('Error creating shipments:', error)
+      console.error('Error updating orders to preparing:', error)
       return NextResponse.json(
-        { error: '출하 등록 중 오류가 발생했습니다.' },
+        { error: '출하 준비 상태 변경 중 오류가 발생했습니다.' },
         { status: 500 }
       )
     }
@@ -196,59 +150,89 @@ export async function POST(request) {
 export async function PUT(request) {
   return await withDB(async (db) => {
     try {
-      const { id, field, value } = await request.json()
+      const body = await request.json()
+      const { id, shipmentIds, shipment_no, field, value } = body
+      console.log("PUT request body:", body)
 
-      if (!id || !field || value === undefined) {
-        return NextResponse.json(
-          { error: '필수 정보가 누락되었습니다.' },
-          { status: 400 }
-        )
-      }
-
-      // 트랜잭션 시작
-      db.prepare('BEGIN TRANSACTION').run()
-
-      try {
-        let updateData = {}
-        if (field === 'status' && value === 'shipped') {
-          updateData = {
-            [field]: value,
-            shipment_at: new Date().toISOString()
-          }
-        } else {
-          updateData = { [field]: value }
-        }
-
-        const setClause = Object.keys(updateData)
-          .map(key => `${key} = ?`)
-          .join(', ')
-
+      // 단일 필드 업데이트인 경우
+      if (field && value) {
         const stmt = db.prepare(`
-          UPDATE shipment
-          SET ${setClause}
+          UPDATE orders 
+          SET ${field} = ?, 
+              updated_at = datetime('now')
           WHERE id = ?
         `)
+        const result = stmt.run(value, id)
 
-        stmt.run(...Object.values(updateData), id)
+        if (result.changes === 0) {
+          return NextResponse.json({ error: '출하 정보가 없습니다.' }, { status: 404 })
+        }
 
-        // 트랜잭션 커밋
-        db.prepare('COMMIT').run()
-
-        // 업데이트된 데이터 조회
-        const updatedShipment = db.prepare('SELECT * FROM shipment WHERE id = ?').get(id)
-
-        return NextResponse.json(updatedShipment)
-      } catch (error) {
-        // 오류 발생 시 롤백
-        db.prepare('ROLLBACK').run()
-        throw error
+        return NextResponse.json({ message: '수정이 완료되었습니다.' })
       }
+
+      // 출하번호 업데이트인 경우
+      if (shipment_no) {
+        let query
+        let params
+
+        // 트랜잭션 시작
+        db.prepare('BEGIN TRANSACTION').run()
+
+        try {
+          if (id) {
+            // 단일 ID 업데이트
+            query = `
+              UPDATE orders 
+              SET shipment_no = ?,
+                  updated_at = datetime('now')
+              WHERE id = ?
+            `
+            params = [shipment_no, id]
+            console.log('Single update - Query:', query, 'Params:', params)
+          } else if (shipmentIds && Array.isArray(shipmentIds)) {
+            // 다중 ID 업데이트 (합배송)
+            query = `
+              UPDATE orders 
+              SET shipment_no = ?,
+                  updated_at = datetime('now')
+              WHERE id IN (${shipmentIds.map(() => '?').join(',')})
+            `
+            params = [shipment_no, ...shipmentIds]
+            console.log('Batch update - Query:', query, 'Params:', params)
+          } else {
+            console.log('Invalid request - Body:', body)
+            throw new Error('유효하지 않은 요청입니다.')
+          }
+
+          const stmt = db.prepare(query)
+          const result = stmt.run(...params)
+          console.log('Update result:', result)
+
+          if (result.changes === 0) {
+            console.log('No rows updated')
+            db.prepare('ROLLBACK').run()
+            return NextResponse.json({ error: '출하 정보가 없습니다.' }, { status: 404 })
+          }
+
+          // 트랜잭션 커밋
+          db.prepare('COMMIT').run()
+          return NextResponse.json({ 
+            message: '출하번호가 업데이트되었습니다.',
+            changes: result.changes
+          })
+        } catch (error) {
+          console.error('Error in shipment update:', error)
+          // 오류 발생 시 롤백
+          db.prepare('ROLLBACK').run()
+          throw error
+        }
+      }
+
+      return NextResponse.json({ error: '잘못된 요청입니다.' }, { status: 400 })
     } catch (error) {
-      console.error('Error updating shipment:', error)
-      return NextResponse.json(
-        { error: '출하 정보 수정 중 오류가 발생했습니다.' },
-        { status: 500 }
-      )
+      console.error('Error in PUT /api/shipment:', error)
+      return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 })
     }
   })
 } 

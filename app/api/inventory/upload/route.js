@@ -42,6 +42,28 @@ export async function POST(request) {
         )
       `)
 
+      // 컬럼명 자동 매핑 함수 추가
+      function getColumnKey(keys, keyword) {
+        return keys.find(k => k.toUpperCase().replace(/\s/g, '').includes(keyword));
+      }
+
+      const mapRow = (row) => {
+        const keys = Object.keys(row);
+        const codeKey = getColumnKey(keys, 'ALLNZCODE');
+        const nameKey = getColumnKey(keys, 'PRODUCTNAME');
+        const nzKey = getColumnKey(keys, 'NZ STOCK') || getColumnKey(keys, 'NZ재고');
+        const ausKey = getColumnKey(keys, 'AUS STOCK') || getColumnKey(keys, 'AUS재고');
+
+        return {
+          product_code: codeKey ? row[codeKey] : '',
+          product_name: nameKey ? row[nameKey] : '',
+          nz_stock: nzKey ? Number(row[nzKey]) : 0,
+          aus_stock: ausKey ? Number(row[ausKey]) : 0,
+        };
+      };
+
+      const filtered = jsonData.map(mapRow).filter(r => r.product_code && r.product_name && (r.nz_stock || r.aus_stock));
+
       // 트랜잭션 시작
       const insertOrUpdate = db.transaction((items) => {
         const stmt = db.prepare(`
@@ -86,7 +108,7 @@ export async function POST(request) {
       })
 
       // 트랜잭션 실행
-      insertOrUpdate(jsonData)
+      insertOrUpdate(filtered)
 
       return NextResponse.json({
         success: true,

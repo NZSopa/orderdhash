@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import db from '@/app/lib/db'
+import { fetchSheetData } from '@/app/lib/fetchSheetData'
 
 // GET /api/inventory?query=검색어
 export async function GET(request) {
@@ -70,5 +71,16 @@ export async function DELETE(request) {
       { error: '삭제 중 오류가 발생했습니다.' },
       { status: 500 }
     )
+  }
+}
+
+// GET /api/inventory/sheet - 구글 시트에서 재고 불러오기
+export async function GET_SHEET(request) {
+  try {
+    const data = await fetchSheetData();
+    return NextResponse.json({ data });
+  } catch (error) {
+    console.error('Error fetching sheet data:', error);
+    return NextResponse.json({ data: [], error: '구글 시트 데이터 불러오기 실패' }, { status: 500 });
   }
 } 

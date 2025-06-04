@@ -7,6 +7,9 @@ import Pagination from '@/app/components/Pagination'
 import SearchBox from '@/app/components/SearchBox'
 import { cn } from '@/app/lib/utils'
 import { FaExclamationTriangle } from 'react-icons/fa'
+import { updateOrderLocation, processSplitShipment, processMergeShipment, validateMergeSelection, cancelMergeShipment } from '@/app/lib/orderUtils'
+import SplitShipmentModal from '@/app/components/SplitShipmentModal'
+import MergeShipmentModal from '@/app/components/MergeShipmentModal'
 
 export default function OrderListPage() {
   const [orders, setOrders] = useState([])
@@ -136,99 +139,51 @@ export default function OrderListPage() {
   const handleSplitShipment = async (quantities) => {
     try {
       setIsProcessing(true)
-      const batchId = new Date().getTime().toString()
-
-      const selectedOrderData = orders
-        .filter(order => selectedOrders.includes(order.id))
-        .map(order => {
-          const originalBatch = order.shipment_batch // 기존 배치 ID 저장
-          return {
-            ...order,
-            quantity: quantities[order.id] || order.quantity,
-            shipment_batch: batchId,
-            original_batch: originalBatch, // 기존 배치 ID 전달
-            remaining_quantity: order.quantity - (quantities[order.id] || order.quantity)
-          }
-        })
-
-      const response = await fetch('/api/shipment/split', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      await processSplitShipment({
+        orders,
+        selectedOrders,
+        quantities,
+        onSuccess: (message) => {
+          toast.success(message)
+          setShowSplitModal(false)
+          setSelectedOrders([])
+          fetchOrders()
         },
-        body: JSON.stringify(selectedOrderData)
+        onError: (error) => {
+          toast.error(error)
+        }
       })
-
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error)
-      }
-
-      toast.success('분할 배송 처리가 완료되었습니다.')
-      setShowSplitModal(false)
-      setSplitQuantities({})
-      setSelectedOrders([])
-      await fetchOrders()
     } catch (error) {
-      console.error('Error processing split shipment:', error)
-      toast.error(error.message || '분할 배송 처리 중 오류가 발생했습니다.')
+      console.error('Error in handleSplitShipment:', error)
     } finally {
       setIsProcessing(false)
     }
   }
 
-  // 합배송 처리 전 유효성 검사
-  const validateMergeSelection = (selectedOrderIds) => {
-    const selectedOrders = selectedOrderIds.map(id => orders.find(o => o.id === id))
-    const hasBatchedOrder = selectedOrders.some(order => order.shipment_batch !== null)
-    
-    if (hasBatchedOrder) {
-      toast.error('이미 합배송된 주문이 포함되어 있습니다. 기존 합배송을 취소한 후 다시 시도해주세요.')
-      return false
-    }
-    
-    return true
-  }
-
   // 합배송 처리
   const handleMergeShipment = async () => {
-    if (!validateMergeSelection(selectedOrders)) {
+    if (!validateMergeSelection(orders, selectedOrders)) {
+      toast.error('이미 합배송된 주문이 포함되어 있습니다. 기존 합배송을 취소한 후 다시 시도해주세요.')
       return
     }
 
     try {
       setIsProcessing(true)
-      const batchId = new Date().getTime().toString()
-
-      const selectedOrderData = orders
-        .filter(order => selectedOrders.includes(order.id))
-        .map(order => ({
-          ...order,
-          shipment_batch: batchId
-        }))
-
-      const response = await fetch('/api/shipment/merge', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      await processMergeShipment({
+        orders,
+        selectedOrders,
+        onSuccess: (message) => {
+          toast.success(message)
+          setShowMergeModal(false)
+          setSelectedOrders([])
+          fetchOrders()
         },
-        body: JSON.stringify(selectedOrderData)
+        onError: (error) => {
+          toast.error(error)
+        }
       })
-
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error)
-      }
-
-      toast.success('합배송 처리가 완료되었습니다.')
-      setShowMergeModal(false)
-      setSelectedOrders([])
-      await fetchOrders()
     } catch (error) {
-      console.error('Error processing merge shipment:', error)
-      toast.error(error.message || '합배송 처리 중 오류가 발생했습니다.')
+      console.error('Error in handleMergeShipment:', error)
     } finally {
       setIsProcessing(false)
     }
@@ -376,52 +331,24 @@ export default function OrderListPage() {
   }
 
   // 출고지 수정 처리
-  const handleLocationChange = async (reference_no, newLocation, group) => {
+  const handleLocationChange = async (id, reference_no, newLocation, group) => {
     try {
-      // 합배송된 주문인 경우
-      if (group && group.length > 1) {
-        const promises = group.map(order => 
-          fetch('/api/orders', {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              reference_no: order.reference_no,
-              shipment_location: newLocation
-            })
-          })
-        )
-
-        await Promise.all(promises)
-        toast.success('합배송 주문의 출고지가 모두 수정되었습니다.')
-      } else {
-        // 단일 주문인 경우
-        const response = await fetch('/api/orders', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            reference_no,
-            shipment_location: newLocation
-          })
-        })
-
-        const result = await response.json()
-        
-        if (!response.ok) {
-          throw new Error(result.error)
+      await updateOrderLocation({
+        id,
+        reference_no,
+        newLocation,
+        group,
+        onSuccess: (message) => {
+          toast.success(message)
+          setEditingOrder(null)
+          fetchOrders()
+        },
+        onError: (error) => {
+          toast.error(error)
         }
-
-        toast.success('출고지가 수정되었습니다.')
-      }
-
-      setEditingOrder(null)
-      fetchOrders()
+      })
     } catch (error) {
-      console.error('Error updating location:', error)
-      toast.error(error.message || '출고지 수정 중 오류가 발생했습니다.')
+      console.error('Error in handleLocationChange:', error)
     }
   }
 
@@ -535,7 +462,7 @@ export default function OrderListPage() {
   }
 
   // kana 수정 처리 함수 추가
-  const handleKanaChange = async (reference_no, newKana) => {
+  const handleKanaChange = async (id, reference_no, newKana) => {
     try {
       const response = await fetch('/api/orders', {
         method: 'PUT',
@@ -543,6 +470,7 @@ export default function OrderListPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          id,
           reference_no,
           kana: newKana,
           shipment_location: orders.find(order => order.reference_no === reference_no)?.shipment_location
@@ -565,62 +493,21 @@ export default function OrderListPage() {
   }
 
   // 분할 배송 모달
-  const SplitShipmentModal = () => {
+  const SplitShipmentModalComponent = () => {
     if (!showSplitModal) return null
 
     const selectedOrdersData = orders.filter(order => selectedOrders.includes(order.id))
     const hasBatchedOrders = selectedOrdersData.some(order => order.shipment_batch)
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-2xl w-full">
-          <h2 className="text-xl font-bold mb-4">
-            {hasBatchedOrders ? '합배송 분할 처리' : '분할 배송 처리'}
-          </h2>
-          <div className="space-y-4">
-            {selectedOrdersData.map(order => (
-              <div key={order.id} className="flex items-center gap-4">
-                <div className="flex-1">
-                  <p className="font-medium">{order.reference_no}</p>
-                  <p className="text-sm text-gray-600">{order.product_name}</p>
-                  {order.shipment_batch && (
-                    <p className="text-xs text-blue-600">합배송 그룹: {order.shipment_batch}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="1"
-                    max={order.quantity}
-                    value={splitQuantities[order.id] || order.quantity}
-                    onChange={(e) => setSplitQuantities(prev => ({
-                      ...prev,
-                      [order.id]: parseInt(e.target.value)
-                    }))}
-                    className="w-20 px-2 py-1 border rounded"
-                  />
-                  <span className="text-sm text-gray-600">/ {order.quantity}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-6 flex justify-end gap-2">
-            <button
-              onClick={() => setShowSplitModal(false)}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800"
-            >
-              취소
-            </button>
-            <button
-              onClick={() => handleSplitShipment(splitQuantities)}
-              disabled={isProcessing}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400"
-            >
-              {isProcessing ? '처리 중...' : '분할 배송 처리'}
-            </button>
-          </div>
-        </div>
-      </div>
+      <SplitShipmentModal
+        isOpen={showSplitModal}
+        onClose={() => setShowSplitModal(false)}
+        selectedOrders={selectedOrders}
+        orders={orders}
+        onConfirm={handleSplitShipment}
+        isProcessing={isProcessing}
+      />
     )
   }
 
@@ -664,23 +551,17 @@ export default function OrderListPage() {
   const handleCancelMerge = async (orders) => {
     try {
       setIsProcessing(true)
-      const response = await fetch('/api/shipment/merge/cancel', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      await cancelMergeShipment({
+        orders,
+        onSuccess: (message) => {
+          toast.success(message)
+          setSelectedOrders([])
+          fetchOrders()
         },
-        body: JSON.stringify(orders)
+        onError: (error) => {
+          toast.error(error)
+        }
       })
-
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error)
-      }
-
-      toast.success('합배송이 취소되었습니다.')
-      setSelectedOrders([])
-      await fetchOrders()
     } catch (error) {
       console.error('Error canceling merge shipment:', error)
       toast.error(error.message || '합배송 취소 중 오류가 발생했습니다.')
@@ -693,6 +574,7 @@ export default function OrderListPage() {
   const renderOrderRow = (order, isFirstInGroup, isLastInGroup, totalInGroup, group) => {
     const isBatched = order.shipment_batch !== null && totalInGroup > 1
     const mergeInfo = isBatched ? group.map(o => ({
+      shipment_batch: o.shipment_batch,
       reference_no: o.reference_no,
       consignee_name: o.consignee_name,
       product_name: o.product_name,
@@ -729,6 +611,12 @@ export default function OrderListPage() {
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap">
+        <div className={cn(
+            "text-sm",
+            isBatched && "font-medium text-blue-900 mt-2"
+          )}>
+            {order.sales_site}
+          </div>
           {isBatched && (
             <div className="space-y-1">
               <div className="flex items-center gap-1">
@@ -750,24 +638,19 @@ export default function OrderListPage() {
               {isFirstInGroup && (
                 <div className="text-xs text-gray-500 ml-1">
                   {mergeInfo.map((info, idx) => (
-                    <div key={info.reference_no} className={cn(
-                      "flex justify-between",
+                    <div key={`${info.reference_no}-${idx}`} className={cn(
+                      "flex flex-col",
                       idx !== 0 && "mt-1 pt-1 border-t border-gray-200"
                     )}>
-                      <span className="font-medium">{info.reference_no}</span>
-                      <span>{info.consignee_name}</span>
+                      <div className="flex justify-between">
+                        <span className="font-medium">{info.shipment_batch}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
           )}
-          <div className={cn(
-            "text-sm",
-            isBatched && "font-medium text-blue-900 mt-2"
-          )}>
-            {order.sales_site}
-          </div>
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-sm">
           {editingOrder === order.reference_no ? (
@@ -775,7 +658,7 @@ export default function OrderListPage() {
               <select
                 className="border rounded px-2 py-1 text-sm"
                 defaultValue={order.shipment_location}
-                onChange={(e) => handleLocationChange(order.reference_no, e.target.value, group)}
+                onChange={(e) => handleLocationChange(order.id, order.reference_no, e.target.value, group)}
                 onBlur={() => setEditingOrder(null)}
               >
                 <option value="aus_kn">aus-kn</option>
@@ -806,10 +689,10 @@ export default function OrderListPage() {
               type="text"
               className="border rounded px-2 py-1 text-sm w-full"
               defaultValue={order.kana || ''}
-              onBlur={(e) => handleKanaChange(order.reference_no, e.target.value)}
+              onBlur={(e) => handleKanaChange(order.id, order.reference_no, e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  handleKanaChange(order.reference_no, e.target.value)
+                  handleKanaChange(order.id, order.reference_no, e.target.value)
                 } else if (e.key === 'Escape') {
                   setEditingKana(null)
                 }
@@ -846,55 +729,20 @@ export default function OrderListPage() {
   }
 
   // 합배송 모달 컴포넌트 수정
-  const MergeShipmentModal = () => {
+  const MergeShipmentModalComponent = () => {
     if (!showMergeModal) return null
 
     const selectedOrdersData = orders.filter(order => selectedOrders.includes(order.id))
 
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 shadow-xl">
-          <h2 className="text-xl font-bold mb-4 text-gray-900">합배송 처리</h2>
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-            {selectedOrdersData.map(order => (
-              <div key={order.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-medium text-gray-900">{order.reference_no}</p>
-                    <p className="text-sm text-gray-600 mt-1">{order.product_name}</p>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      수취인: {order.consignee_name}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">
-                      수량: {order.quantity}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      출고지: {order.shipment_location}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-6 flex justify-end gap-3">
-            <button
-              onClick={() => setShowMergeModal(false)}
-              className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors"
-            >
-              취소
-            </button>
-            <button
-              onClick={handleMergeShipment}
-              disabled={isProcessing}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-            >
-              {isProcessing ? '처리 중...' : '합배송 처리'}
-            </button>
-          </div>
-        </div>
-      </div>
+      <MergeShipmentModal
+        isOpen={showMergeModal}
+        onClose={() => setShowMergeModal(false)}
+        selectedOrders={selectedOrders}
+        orders={orders}
+        onConfirm={handleMergeShipment}
+        isProcessing={isProcessing}
+      />
     )
   }
 
@@ -1044,6 +892,21 @@ export default function OrderListPage() {
             합배송
           </button>
           <button
+            onClick={handleDownloadKana}
+            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+          >
+            KANA 다운로드
+          </button>
+          <label className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 cursor-pointer">
+            KANA 업로드
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleUploadKana}
+              className="hidden"
+            />
+          </label>
+          <button
             onClick={handleShipment}
             disabled={isProcessing || selectedOrders.length === 0}
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400"
@@ -1157,6 +1020,31 @@ export default function OrderListPage() {
         </div>
       )}
 
+      {/* 테이블 하단 버튼 그룹 */}
+      <div className="mt-4 mb-4 flex justify-end items-center gap-2">
+        <button
+          onClick={() => setShowSplitModal(true)}
+          disabled={selectedOrders.length === 0}
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400"
+        >
+          분할 배송
+        </button>
+        <button
+          onClick={() => setShowMergeModal(true)}
+          disabled={selectedOrders.length < 2}
+          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-gray-400"
+        >
+          합배송
+        </button>
+        <button
+          onClick={handleShipment}
+          disabled={isProcessing || selectedOrders.length === 0}
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400"
+        >
+          {isProcessing ? '처리 중...' : '출하 처리'}
+        </button>
+      </div>
+
       <div className="mt-4">
         <Pagination
           currentPage={page}
@@ -1166,10 +1054,10 @@ export default function OrderListPage() {
       </div>
 
       {/* 분할 배송 모달 */}
-      <SplitShipmentModal />
+      <SplitShipmentModalComponent />
 
       {/* 합배송 모달 */}
-      <MergeShipmentModal />
+      <MergeShipmentModalComponent />
 
     </div>
   )
