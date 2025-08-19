@@ -37,16 +37,61 @@ export async function POST(request) {
         if (type === 'amazon') {
           // 아마존 가격 파일 처리
           const buffer = Buffer.from(await file.arrayBuffer())
-          const workbook = read(buffer)
-          const worksheet = workbook.Sheets[workbook.SheetNames[0]]
-          const data = utils.sheet_to_json(worksheet)
+          let data
+          let isTabDelimited = false
+          let isCSV = false
+          // 파일명이 txt/csv이거나, 첫 1KB에 탭/쉼표가 많이 포함되어 있으면 구분자 판별
+          if (file.name?.endsWith('.txt')) {
+            isTabDelimited = true
+          } else if (file.name?.endsWith('.csv')) {
+            isCSV = true
+          } else {
+            const preview = buffer.slice(0, 1024).toString('utf8')
+            if ((preview.match(/\t/g) || []).length > 10) {
+              isTabDelimited = true
+            } else if ((preview.match(/,/g) || []).length > 10) {
+              isCSV = true
+            }
+          }
+
+          if (isTabDelimited) {
+            // 탭 구분 텍스트 파일 처리
+            const content = buffer.toString('utf8')
+            data = parse(content, {
+              columns: true,
+              skip_empty_lines: true,
+              delimiter: '\t',
+              trim: true,
+              bom: true,
+              relax_quotes: true,
+              relax_column_count: true
+            })
+          } else if (isCSV) {
+            // CSV 파일 처리
+            const content = buffer.toString('utf8')
+            data = parse(content, {
+              columns: true,
+              skip_empty_lines: true,
+              delimiter: ',',
+              trim: true,
+              bom: true,
+              relax_quotes: true,
+              relax_column_count: true
+            })
+          } else {
+            // 엑셀 파일 처리
+            const workbook = read(buffer)
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+            data = utils.sheet_to_json(worksheet)
+          }
 
           for (const row of data) {
             totalCount++
-            const salesCode = row['SKU']?.toString()
-            const priceStr = row['Price']?.toString()
+            const sales_sku = row['sku']?.toString() || row['出品者SKU']?.toString() || row['Custom label (SKU)']?.toString();
+            const priceStr = row['price']?.toString() || row['価格']?.toString() || row['Current price']?.toString();
+            const stockStr = row['quantity']?.toString() || row['数量']?.toString() || row['Available quantity']?.toString();
 
-            if (!salesCode || !priceStr) {
+            if (!sales_sku || !priceStr || !stockStr) {
               failedCount++
               continue
             }
@@ -70,9 +115,10 @@ export async function POST(request) {
               const result = db.prepare(`
                 UPDATE sales_listings 
                 SET sales_price = ?, 
+                    sales_qty = ?,
                     updated_at = CURRENT_TIMESTAMP 
-                WHERE sales_code = ?
-              `).run(finalPrice, salesCode)
+                WHERE sales_sku = ?
+              `).run(finalPrice, stockStr, sales_sku)
 
               if (result.changes > 0) {
                 updatedCount++

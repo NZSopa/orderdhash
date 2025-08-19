@@ -16,7 +16,9 @@ export async function POST(request) {
         for (const code of codes) {
           const {
             sales_code,
-            product_name,
+            sales_sku,
+            sales_product_name,
+            sales_qty = 0,
             set_qty = 1,
             product_code,
             sales_price = 0,
@@ -27,13 +29,25 @@ export async function POST(request) {
           } = code
 
           // 필수 필드 검증
-          if (!sales_code || !product_name || !product_code) {
-            throw new Error('판매 코드와 제품 코드와 상품명은 필수 입력 항목입니다.')
+          if (!sales_code || !product_code) {
+            throw new Error('판매 코드와 제품 코드는 필수 입력 항목입니다.')
           }
 
           // shipping_country 검증
           if (shipping_country && !['aus', 'nz'].includes(shipping_country.toLowerCase())) {
             throw new Error('현재는 발송 출발 국가는 aus 또는 nz만 가능합니다.')
+          }
+
+          // product_name을 product_master에서 가져오기
+          const productMaster = db.prepare(
+            'SELECT product_name FROM product_master WHERE product_code = ?'
+          ).get(product_code)
+          if (!productMaster) {
+            throw new Error(`product_master에 해당 제품 코드(${product_code})가 존재하지 않습니다.`)
+          }
+          let product_name = productMaster.product_name
+          if (Number(set_qty) >= 2) {
+            product_name = `${product_name} ${set_qty} SETS`
           }
 
           // 기존 코드 확인
@@ -46,13 +60,16 @@ export async function POST(request) {
             db.prepare(`
               UPDATE sales_listings 
               SET product_name = ?, set_qty = ?, product_code = ?, sales_price = ?,
-                  weight = ?, sales_site = ?, site_url = ?, shipping_country = ?,
+                  weight = ?, sales_site = ?, site_url = ?, shipping_country = ?, sales_qty = ?, sales_sku = ?, sales_product_name = ?,
                   updated_at = CURRENT_TIMESTAMP
               WHERE sales_code = ?
             `).run(
               product_name, set_qty, product_code, sales_price,
               weight, sales_site, site_url,
               shipping_country ? shipping_country.toLowerCase() : null,
+              0,
+              sales_sku,
+              sales_product_name,
               sales_code
             )
           } else {
@@ -60,12 +77,13 @@ export async function POST(request) {
             db.prepare(`
               INSERT INTO sales_listings 
               (sales_code, product_name, set_qty, product_code, sales_price,
-               weight, sales_site, site_url, shipping_country)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+               weight, sales_site, site_url, shipping_country, sales_qty, sales_sku, sales_product_name)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `).run(
               sales_code, product_name, set_qty, product_code, sales_price,
               weight, sales_site, site_url,
-              shipping_country ? shipping_country.toLowerCase() : null
+              shipping_country ? shipping_country.toLowerCase() : null,
+              0, sales_sku, sales_product_name
             )
           }
         }

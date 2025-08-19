@@ -14,8 +14,7 @@ export async function GET(request) {
 
       // 정렬 필드 유효성 검사
       const validSortFields = [
-        'sales_code', 'product_name', 'set_qty', 'product_code', 
-        'sales_price', 'weight', 'sales_site', 'shipping_country',
+        'sales_code', 'product_name', 'sales_product_name', 'sales_sku', 'sales_qty',  'set_qty', 'product_code', 'sales_price', 'weight', 'sales_site', 'shipping_country',
         'created_at', 'updated_at'
       ]
       const actualSortField = validSortFields.includes(sortField) ? sortField : 'sales_code'
@@ -27,10 +26,17 @@ export async function GET(request) {
         whereClause = `
           WHERE sales_code LIKE ? 
           OR product_name LIKE ? 
+          OR sales_product_name LIKE ? 
+          OR product_name LIKE ? 
+          OR sales_sku LIKE ? 
+          OR sales_qty LIKE ? 
           OR product_code LIKE ?
           OR sales_site LIKE ?
         `
-        params.push(`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`)
+        params.push(
+          `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`,
+          `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`
+        )
       }
 
       const stmt = db.prepare(`
@@ -39,6 +45,11 @@ export async function GET(request) {
             id,
             sales_code,
             product_name,
+            product_code,
+            sales_product_name,
+            product_name,
+            sales_sku,
+            sales_qty,
             set_qty,
             product_code,
             sales_price,
@@ -85,11 +96,10 @@ export async function POST(request) {
     return await withDB(async (db) => {
       const stmt = db.prepare(`
         INSERT OR REPLACE INTO sales_listings (
-          sales_code, product_name, set_qty, product_code,
-          sales_price, weight, sales_site, site_url, shipping_country,
+          sales_code, product_name, sales_product_name, sales_sku, sales_qty, set_qty, product_code, sales_price, weight, sales_site, site_url, shipping_country,
           updated_at, created_at
         ) VALUES (
-          @sales_code, @product_name, @set_qty, @product_code,
+          @sales_code, @product_name, @sales_product_name, @sales_sku, @sales_qty, @set_qty, @product_code,
           @sales_price, @weight, @sales_site, @site_url, @shipping_country,
           CURRENT_TIMESTAMP,
           COALESCE((SELECT created_at FROM sales_listings WHERE sales_code = @sales_code), CURRENT_TIMESTAMP)
@@ -134,9 +144,12 @@ export async function DELETE(request) {
     const { searchParams } = new URL(request.url)
     const productCode = searchParams.get('product_code')
     const salesCode = searchParams.get('sales_code')
+    const salesSku = searchParams.get('sales_sku')
+    const salesQty = searchParams.get('sales_qty')
     const action = searchParams.get('action')
     const answer = searchParams.get('answer')
     const userAnswer = searchParams.get('userAnswer')
+    const productName = searchParams.get('product_name')
     
     return await withDB(async (db) => {
       if (action === 'deleteAll') {
@@ -161,7 +174,7 @@ export async function DELETE(request) {
         })
       }
       
-      if (!productCode && !salesCode) {
+      if (!productCode && !salesCode && !salesSku && !salesQty && !productName) {
         return NextResponse.json(
           { error: '삭제할 코드가 필요합니다.' },
           { status: 400 }
@@ -170,6 +183,12 @@ export async function DELETE(request) {
 
       if (productCode) {
         db.prepare('DELETE FROM sales_listings WHERE product_code = ?').run(productCode)
+      } else if (salesSku) {
+        db.prepare('DELETE FROM sales_listings WHERE sales_sku = ?').run(salesSku)
+      } else if (salesQty) {
+        db.prepare('DELETE FROM sales_listings WHERE sales_qty = ?').run(salesQty)
+      } else if (productName) {
+        db.prepare('DELETE FROM sales_listings WHERE product_name = ?').run(productName)
       } else {
         db.prepare('DELETE FROM sales_listings WHERE sales_code = ?').run(salesCode)
       }

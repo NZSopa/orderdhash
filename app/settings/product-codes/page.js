@@ -292,6 +292,35 @@ export default function ProductCodesPage() {
     setIsModalOpen(true)
   }
 
+  // Add the handleDownloadAll function inside the ProductCodesPage component
+  const handleDownloadAll = async () => {
+    try {
+      const response = await fetch('/api/settings/product-codes/download')
+      if (!response.ok) throw new Error('Failed to fetch data')
+      const data = await response.json()
+
+      // Map data to Excel columns
+      const excelData = data.map(item => ({
+        '제품 코드': item.product_code,
+        '제품명': item.product_name,
+        '브랜드': item.brand,
+        '구입처': item.supplier,
+        '출고지': item.shipping_from,
+        '이미지 URL': item.image_url,
+        '설명': item.description,
+        '바코드': item.barcode,
+      }))
+
+      const ws = XLSX.utils.json_to_sheet(excelData)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, '제품코드')
+      XLSX.writeFile(wb, '제품코드_전체목록.xlsx')
+    } catch (error) {
+      alert('다운로드 중 오류가 발생했습니다.')
+      console.error(error)
+    }
+  }
+
   return (
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
@@ -302,6 +331,12 @@ export default function ProductCodesPage() {
             className="btn bg-indigo-500 hover:bg-indigo-600 text-white gap-2"
           >
             <FaDownload /> 엑셀 양식
+          </button>
+          <button
+            onClick={handleDownloadAll}
+            className="btn bg-emerald-500 hover:bg-emerald-600 text-white gap-2"
+          >
+            <FaDownload /> 전체 다운로드
           </button>
           <input
             type="file"

@@ -2,6 +2,7 @@
 
 import { FaFileUpload } from 'react-icons/fa'
 import PriceFileUpload from '@/app/components/sales_prices/PriceFileUpload'
+import React from "react";
 
 export default function PricePage() {
   return (
@@ -63,4 +64,47 @@ export default function PricePage() {
       </div>
     </div>
   )
+}
+
+export function UploadResults({ result }) {
+  if (!result) return null;
+
+  return (
+    <div>
+      <h2>Upload Results</h2>
+      <div>
+        <strong>Success:</strong> {result.successCount}
+        <br />
+        <strong>Failed:</strong> {result.failCount}
+      </div>
+
+      {result.failCount > 0 && (
+        <div style={{ marginTop: 24 }}>
+          <h3>Failed Records</h3>
+          <table border="1" cellPadding="8">
+            <thead>
+              <tr>
+                <th>Row</th>
+                <th>Data</th>
+                <th>Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.failedRows.map((fail, idx) => (
+                <tr key={idx}>
+                  <td>{fail.row}</td>
+                  <td>
+                    <pre style={{ margin: 0 }}>
+                      {JSON.stringify(fail.data, null, 2)}
+                    </pre>
+                  </td>
+                  <td>{fail.error}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 } 

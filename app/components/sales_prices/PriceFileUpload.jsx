@@ -27,7 +27,7 @@ export default function PriceFileUpload({ type = 'amazon', inputId }) {
 
     const droppedFile = e.dataTransfer.files[0]
     const fileExt = droppedFile?.name.split('.').pop().toLowerCase()
-    const validExt = type === 'amazon' ? ['xlsx', 'xls'] : ['csv']
+    const validExt = type === 'amazon' ? ['xlsx', 'xls','txt','csv'] : ['csv']
     
     if (droppedFile && validExt.includes(fileExt)) {
       setFile(droppedFile)
@@ -42,7 +42,7 @@ export default function PriceFileUpload({ type = 'amazon', inputId }) {
 
     // 파일 확장자 체크
     const fileExt = file.name.split('.').pop().toLowerCase()
-    const validExt = type === 'amazon' ? ['xlsx', 'xls'] : ['csv']
+    const validExt = type === 'amazon' ? ['xlsx', 'xls','txt','csv'] : ['csv']
     
     if (!validExt.includes(fileExt)) {
       toast.error(`${validExt.join(', ')} 파일만 업로드 가능합니다.`)
@@ -105,7 +105,7 @@ export default function PriceFileUpload({ type = 'amazon', inputId }) {
           <input
             type="file"
             id={inputId}
-            accept={type === 'amazon' ? '.xlsx,.xls' : '.csv'}
+            accept={type === 'amazon' ? '.xlsx,.xls,.txt,.csv' : '.csv'}
             onChange={handleFileChange}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
             disabled={isUploading}
@@ -124,13 +124,13 @@ export default function PriceFileUpload({ type = 'amazon', inputId }) {
                 <>
                   <p className="text-sm font-medium text-gray-600">
                     {type === 'amazon' 
-                      ? '아마존 가격 파일(xlsx, xls)을 이곳에 드래그하거나 클릭하여 선택하세요'
+                      ? '아마존 가격 파일(xlsx, xls, txt, csv)을 이곳에 드래그하거나 클릭하여 선택하세요'
                       : 'Yahoo 가격 파일(csv)을 이곳에 드래그하거나 클릭하여 선택하세요'
                     }
                   </p>
                   <p className="mt-1 text-xs text-gray-500">
                     {type === 'amazon' 
-                      ? '.xlsx, .xls 파일만 지원됩니다'
+                      ? '.xlsx, .xls, .txt, .csv 파일만 지원됩니다'
                       : '.csv 파일만 지원됩니다'
                     }
                   </p>

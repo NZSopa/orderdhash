@@ -26,13 +26,6 @@ const menuItems = [
     ],
   },
   {
-    name: '출품 관리',
-    icon: FaStore,
-    items: [
-      { name: '출품 정보', href: '/codes' },
-    ],
-  },
-  {
     name: '정산 관리',
     icon: FaShoppingCart,
     items: [
@@ -54,11 +47,12 @@ const menuItems = [
     name: '설정',
     icon: FaCog,
     items: [
-      { name: '제품 코드 관리', href: '/settings/product-codes' },
-      { name: '판매 사이트', href: '/sites' },
+      { name: '제품 코드', href: '/settings/product-codes' },
+      { name: '출품 정보', href: '/codes' },
+      { name: '판매 사이트 ', href: '/sites' },
       { name: '판매 가격', href: '/sales_prices' },
-      { name: '원가 관리', href: '/unit-prices' },
-      { name: '재고 업로드', href: '/inventory' },
+      { name: '원가', href: '/unit-prices' },
+      { name: '재고', href: '/inventory' },
     ],
   },
   {

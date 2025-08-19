@@ -1,21 +1,38 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { FaFileUpload, FaSearch, FaEdit, FaTrash, FaSort, FaSortUp, FaSortDown, FaExclamationTriangle, FaPlus, FaFileExcel, FaDownload } from 'react-icons/fa'
 import * as XLSX from 'xlsx'
 
 const EXCEL_TEMPLATE = [
   {
+    '판매 SKU': '',
     '판매 코드': '',
-    '상품명': '',
+    '판매 상품명': '',
     '세트 수량': '',
+    '판매 수량': '',
     '제품 코드': '',
     '판매가': '',
-    '중량(g)': '',
+    '중량(kg)': '',
     '판매 사이트': '',
     '상품 URL': '',
     '배송국가': 'nz',
   }
+]
+
+const allColumns = [
+  { key: 'sales_code', label: '판매 코드' },
+  { key: 'sales_sku', label: '판매 SKU' },
+  { key: 'sales_product_name', label: '판매 상품명' },
+  { key: 'product_name', label: '상품명' },
+  { key: 'sales_qty', label: '판매 수량' },
+  { key: 'set_qty', label: '세트 수량' },
+  { key: 'product_code', label: '제품 코드' },
+  { key: 'sales_price', label: '판매가' },
+  { key: 'weight', label: '중량(kg)' },
+  { key: 'sales_site', label: '판매 사이트' },
+  { key: 'shipping_country', label: '배송국가' },
+  { key: 'site_url', label: '상품 URL' }
 ]
 
 export default function CodesPage() {
@@ -30,7 +47,10 @@ export default function CodesPage() {
   const [editingCode, setEditingCode] = useState(null)
   const [formData, setFormData] = useState({
     sales_code: '',
+    sales_product_name: '',
+    sales_sku: '',
     product_name: '',
+    sales_qty: '',
     set_qty: '',
     product_code: '',
     sales_price: '',
@@ -44,12 +64,9 @@ export default function CodesPage() {
     shipping_country: 'nz'
   })
   const [isUploading, setIsUploading] = useState(false)
+  const [visibleColumns, setVisibleColumns] = useState(allColumns.map(col => col.key))
 
-  useEffect(() => {
-    loadCodes()
-  }, [searchQuery, currentPage, itemsPerPage, sortField, sortOrder])
-
-  const loadCodes = async () => {
+  const loadCodes = useCallback(async () => {
     try {
       const queryParams = new URLSearchParams({
         page: currentPage,
@@ -72,7 +89,11 @@ export default function CodesPage() {
     } catch (error) {
       console.error('Error loading codes:', error)
     }
-  }
+  }, [searchQuery, currentPage, itemsPerPage, sortField, sortOrder])
+
+  useEffect(() => {
+    loadCodes()
+  }, [loadCodes])
 
   const handleSearch = (e) => {
     setSearchQuery(e.target.value)
@@ -112,7 +133,10 @@ export default function CodesPage() {
     setEditingCode(code)
     setFormData({
       sales_code: code.sales_code,
+      sales_sku: code.sales_sku,
+      sales_product_name: code.sales_product_name,
       product_name: code.product_name,
+      sales_qty: code.sales_qty,
       set_qty: code.set_qty,
       product_code: code.product_code,
       sales_price: code.sales_price,
@@ -180,12 +204,15 @@ export default function CodesPage() {
 
           // 데이터 형식 검증 및 변환
           const codes = jsonData.map(row => ({
+            sales_sku: row['판매 SKU']?.toString(),
+            sales_product_name: row['판매 상품명']?.toString(),
+            sales_qty: row['판매 수량']?.toString(),
             sales_code: row['판매 코드']?.toString(),
             product_name: row['상품명']?.toString(),
             set_qty: row['세트 수량']?.toString() || '',
             product_code: row['제품 코드']?.toString(),
             sales_price: row['판매가']?.toString() || '',
-            weight: row['중량(g)']?.toString() || '',
+            weight: row['중량(kg)']?.toString() || '',
             sales_site: row['판매 사이트']?.toString() || '',
             site_url: row['상품 URL']?.toString() || '',
             brand: row['브랜드']?.toString() || '',
@@ -195,7 +222,7 @@ export default function CodesPage() {
             shipping_country: row['배송국가']?.toString()?.toLowerCase() || 'nz'
           })).filter(code => 
             code.product_code && 
-            code.product_name &&
+            code.sales_product_name &&
             (!code.shipping_country || code.shipping_country === 'aus' || code.shipping_country === 'nz')
           )
 
@@ -244,7 +271,10 @@ export default function CodesPage() {
   const resetFormData = () => {
     setFormData({
       sales_code: '',
+      sales_sku: '',
+      sales_product_name: '',
       product_name: '',
+      sales_qty: '',
       set_qty: '',
       product_code: '',
       sales_price: '',
@@ -318,8 +348,39 @@ export default function CodesPage() {
     }
   }
 
+  const handleDownloadAll = async () => {
+    try {
+      const response = await fetch('/api/codes/download')
+      if (!response.ok) throw new Error('Failed to fetch data')
+      const data = await response.json()
+
+      // Map data to Excel columns
+      const excelData = data.map(item => ({
+        '판매 코드': item.sales_code,
+        '판매 SKU': item.sales_sku,
+        '판매 상품명': item.sales_product_name,
+        '판매 수량': item.sales_qty,
+        '세트 수량': item.set_qty,
+        '제품 코드': item.product_code,
+        '판매가': item.sales_price,
+        '중량(kg)': item.weight,
+        '판매 사이트': item.sales_site,
+        '상품 URL': item.site_url,
+        '배송국가': item.shipping_country,
+      }))
+
+      const ws = XLSX.utils.json_to_sheet(excelData)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, '출품정보')
+      XLSX.writeFile(wb, '출품정보_전체목록.xlsx')
+    } catch (error) {
+      alert('다운로드 중 오류가 발생했습니다.')
+      console.error(error)
+    }
+  }
+
   return (
-    <div className="space-y-6 p-8 max-w-[1600px] mx-auto">
+    <div className="space-y-6 p-8 w-full mx-auto">
       <div className="bg-white rounded-xl shadow-sm">
         {/* 헤더 섹션 */}
         <div className="p-6 border-b border-gray-200">
@@ -346,6 +407,12 @@ export default function CodesPage() {
                 className="btn bg-indigo-500 hover:bg-indigo-600 text-white gap-2"
               >
                 <FaDownload /> 엑셀 양식
+              </button>
+              <button
+                onClick={handleDownloadAll}
+                className="btn bg-emerald-500 hover:bg-emerald-600 text-white gap-2"
+              >
+                <FaDownload /> 전체 다운로드
               </button>
               <input
                 type="file"
@@ -397,22 +464,36 @@ export default function CodesPage() {
           </span>
         </div>
 
+        {/* 컬럼 선택 */}
+        <div className="mb-2 flex flex-wrap gap-2">
+          {allColumns.map(col => (
+            <label key={col.key} className="flex items-center gap-1 text-sm">
+              <input
+                type="checkbox"
+                checked={visibleColumns.includes(col.key)}
+                onChange={() => {
+                  setVisibleColumns(cols =>
+                    cols.includes(col.key)
+                      ? cols.filter(k => k !== col.key)
+                      : [...cols, col.key]
+                  )
+                }}
+              />
+              {col.label}
+            </label>
+          ))}
+        </div>
+
         {/* 테이블 */}
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="w-full divide-y divide-gray-200">
             <thead>
               <tr className="bg-gray-50">
-                {renderSortableHeader('sales_code', '판매 코드')}
-                {renderSortableHeader('product_name', '상품명')}
-                {renderSortableHeader('set_qty', '세트 수량')}
-                {renderSortableHeader('product_code', '제품 코드')}
-                {renderSortableHeader('sales_price', '판매가')}
-                {renderSortableHeader('weight', '중량(kg)')}
-                {renderSortableHeader('sales_site', '판매 사이트')}
-                {renderSortableHeader('shipping_country', '배송국가')}
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  상품 URL
-                </th>
+                {allColumns.filter(col => visibleColumns.includes(col.key)).map(col =>
+                <React.Fragment key={col.key}>
+                  {renderSortableHeader(col.key, col.label)}
+                </React.Fragment>                  
+                )}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   작업
                 </th>
@@ -424,48 +505,22 @@ export default function CodesPage() {
                   key={code.sales_code}
                   className="hover:bg-gray-50 transition-colors"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {code.sales_code}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {code.product_name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {code.set_qty || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {code.product_code || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {code.sales_price ? 
-                      `${code.sales_price.toLocaleString()}${
-                        code.sales_site === 'AMZ_NZP' || code.sales_site === 'ebay' 
-                          ? ' USD' 
-                          : ' ¥'
-                      }` 
-                      : '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {code.weight ? `${code.weight}kg` : '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {code.sales_site || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {code.shipping_country ? code.shipping_country.toUpperCase() : '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {code.site_url ? (
-                      <a 
-                        href={code.site_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        링크
-                      </a>
-                    ) : '-'}
-                  </td>
+                  {allColumns.filter(col => visibleColumns.includes(col.key)).map(col => (
+                    <td key={col.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {col.key === 'site_url'
+                        ? (code.site_url
+                            ? <a 
+                                href={code.site_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                링크
+                              </a>
+                            : '-')
+                        : code[col.key] || '-'}
+                    </td>
+                  ))}
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div className="flex gap-2">
                       <button
@@ -538,7 +593,7 @@ export default function CodesPage() {
                 {/* 왼쪽 섹션 */}
                 <div className="space-y-6">
                   <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">기본 정보</h3>
-                  <div>
+                  <div> 
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       판매 코드 <span className="text-red-500">*</span>
                     </label>
@@ -559,16 +614,44 @@ export default function CodesPage() {
                     <input
                       type="text"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      value={formData.product_name}
+                      value={formData.sales_product_name}
                       onChange={(e) =>
-                        setFormData({ ...formData, product_name: e.target.value })
+                        setFormData({ ...formData, sales_product_name: e.target.value })
                       }
                       required
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      제품 코드
+                      판매 SKU <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.sales_sku}
+                      onChange={(e) =>
+                        setFormData({ ...formData, sales_sku: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      판매 수량 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.sales_qty}
+                      onChange={(e) =>
+                        setFormData({ ...formData, sales_qty: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      제품 코드 <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -589,19 +672,6 @@ export default function CodesPage() {
                       value={formData.set_qty}
                       onChange={(e) =>
                         setFormData({ ...formData, set_qty: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      판매가
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      value={formData.sales_price}
-                      onChange={(e) =>
-                        setFormData({ ...formData, sales_price: e.target.value })
                       }
                     />
                   </div>
@@ -702,6 +772,19 @@ export default function CodesPage() {
                       value={formData.image_url}
                       onChange={(e) =>
                         setFormData({ ...formData, image_url: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      판매가
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.sales_price}
+                      onChange={(e) =>
+                        setFormData({ ...formData, sales_price: e.target.value })
                       }
                     />
                   </div>
